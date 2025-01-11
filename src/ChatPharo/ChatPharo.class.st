@@ -73,7 +73,7 @@ ChatPharo >> initialExtent [
 	
 ]
 
-{ #category : 'initialization' }
+{ #category : 'specs' }
 ChatPharo >> initializePresenters [ 
 
     notebook := self newNotebook.
@@ -92,11 +92,59 @@ ChatPharo >> initializePresenters [
         help: 'Delete all chats';
         action: [ self deleteAllChats ];
         yourself).
+        
+    toolbar add: (SpToolbarButtonPresenter new
+        label: 'Save Chat';
+        icon: (self iconNamed: #smallSave);
+        help: 'Save current chat';
+        action: [ self saveCurrentChat ];
+        yourself).
+        
+    toolbar add: (SpToolbarButtonPresenter new
+        label: 'Load Chat';
+        icon: (self iconNamed: #smallOpen);
+        help: 'Load saved chat';
+        action: [ self loadChat ];
+        yourself).
     
     notebook addPage: (SpNotebookPage
         title: 'Chat'
         icon: (self iconNamed: #announcement)
         provider: [ ChatPharoSpecChat new ])
+
+]
+
+{ #category : 'specs' }
+ChatPharo >> loadChat [
+
+    | fileReference jsonData messages newPage |
+    
+    fileReference := UIManager default 
+        chooseExistingFileReference: 'Load chat'
+        extensions: #('json')
+        path: FileLocator home.
+        
+    fileReference ifNotNil: [
+        jsonData := STON fromString: fileReference contents.
+        messages := jsonData collect: [ :dict |
+            LLMAPIChatObjectMessage 
+                role: (dict at: 'role')
+                content: (dict at: 'content')
+        ].
+        
+        newPage := SpNotebookPage
+            title: fileReference basename
+            icon: (self iconNamed: #announcement)
+            provider: [ 
+                | chat |
+                chat := ChatPharoSpecChat new.
+                messages do: [ :msg | chat history addMessage: msg ].
+                chat
+            ].
+            
+        notebook addPage: newPage.
+        notebook selectPage: newPage
+    ]
 ]
 
 { #category : 'accessing' }
@@ -109,6 +157,31 @@ ChatPharo >> notebook [
 ChatPharo >> notebook: anObject [
 
 	notebook := anObject
+]
+
+{ #category : 'specs' }
+ChatPharo >> saveCurrentChat [
+
+    | fileReference jsonData currentChat |
+    
+    currentChat := notebook selectedPage presenterProvider value.
+    jsonData := STON toStringPretty: (currentChat history model collect: [ :msg |
+        Dictionary new
+            at: 'role' put: msg role;
+            at: 'content' put: msg content;
+            yourself
+    ]).
+    
+    fileReference := UIManager default 
+        chooseForSaveFileReference: 'Save chat'
+        extensions: #('json')
+        path: FileLocator home.
+        
+    fileReference ifNotNil: [
+        fileReference writeStream
+            nextPutAll: jsonData;
+            close
+    ]
 ]
 
 { #category : 'specs' }
