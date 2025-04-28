@@ -1,5 +1,5 @@
 Class {
-	#name : 'OllamaApiTest',
+	#name : 'OllamaAPITest',
 	#superclass : 'TestCase',
 	#instVars : [
 		'ollamaApi'
@@ -10,24 +10,26 @@ Class {
 }
 
 { #category : 'running' }
-OllamaApiTest >> setUp [
+OllamaAPITest >> setUp [
 	super setUp.
-
-	"Put here a common initialization logic for tests"
 	
-	ollamaApi := OllamaApi new.
-	ollamaApi model: OllamaApi modelNames first.
+	"Initialize with native API for compatibility with existing tests"
+	ollamaApi := OllamaAPI newWithNativeAPI.
+	ollamaApi model: ollamaApi modelNames first.
 ]
 
 { #category : 'tests' }
-OllamaApiTest >> testGetResponseForPrompt [
-	ollamaApi getResponseForPrompt: 'Can you read these words. Please answer Yes or no'.
-	self assert: (ollamaApi response includesSubstring: 'Yes')
+OllamaAPITest >> testGetResponseForPrompt [
+	"Test that we can get a response from Ollama using the native API"
+	
+	| response |
+	response := ollamaApi getResponseWithNativeAPIForPrompt: 'Can you read these words. Please answer Yes or no'.
+	self assert: (response includesSubstring: 'Yes')
 ]
 
 { #category : 'tests' }
-OllamaApiTest >> testModelInformation [
-	"test that the connection to the model works"
+OllamaAPITest >> testModelInformation [
+	"Test that the connection to the model works"
 
 	self 
 		assert: ollamaApi modelInformation class 
@@ -35,40 +37,35 @@ OllamaApiTest >> testModelInformation [
 ]
 
 { #category : 'tests' }
-OllamaApiTest >> testModelNames [
-	"check at the list function works, and is larger than 0"
-	| res |
-	res := OllamaApi modelNames.
-	self assert: res size >= 1
+OllamaAPITest >> testModelNames [
+	"Check that the modelNames function works and returns a non-empty collection"
 	
+	| modelNames |
+	modelNames := ollamaApi modelNames.
+	self assert: modelNames size >= 1
 ]
 
 { #category : 'tests' }
-OllamaApiTest >> testModels [
-	"check at the list function works, and is larger than 0"
-	| res |
-	res := OllamaApi models.
-	self assert: res size >= 1
+OllamaAPITest >> testOllamaVersion [
+	"Check that the ollamaVersion function works and returns a valid version"
 	
+	| version |
+	version := OllamaAPI ollamaVersion.
+	self assert: (version >= '0.5.10')
 ]
 
 { #category : 'tests' }
-OllamaApiTest >> testNewSystemPromptPrefix [
-	"test that the connection to the model works "
+OllamaAPITest >> testPromptPrefix [
+	"Test that the promptPrefix is properly set and retrieved"
 
-	ollamaApi
-		system: 'Killroy was ';
-		promptPrefix: 'here'.
-	self assert: ollamaApi system equals: 'Killroy was '.
-	self assert: ollamaApi promptPrefix equals: 'here'
+	ollamaApi promptPrefix: 'test-prefix'.
+	self assert: ollamaApi promptPrefix equals: 'test-prefix'
 ]
 
 { #category : 'tests' }
-OllamaApiTest >> testOllamaVersion [
-	"check at the list function works, and is larger than 0"
-	| res |
-	res := OllamaApi ollamaVersion.
-	"If will fail if last become above 100"
-	self assert: (res >= '0.5.10')
-	
+OllamaAPITest >> testSystem [
+	"Test that the system is properly set and retrieved"
+
+	ollamaApi system: 'test-system'.
+	self assert: ollamaApi system equals: 'test-system'
 ]
