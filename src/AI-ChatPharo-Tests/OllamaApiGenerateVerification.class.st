@@ -13,10 +13,9 @@ Class {
 OllamaApiGenerateVerification >> setUp [
 	super setUp.
 
-	"Put here a common initialization logic for tests"
-	
+	"Initialize OllamaApiGenerate instance for tests"
 	ollamaApiGenerate := OllamaApiGenerate new.
-	ollamaApiGenerate model: (OllamaApi modelNames at: 3) .
+	ollamaApiGenerate model: (OllamaAPI newWithNativeAPI modelNames at: 3).
 ]
 
 { #category : 'tests' }
