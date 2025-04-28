@@ -24,7 +24,7 @@ Class {
 { #category : 'instance creation' }
 ChatPharo class >> new [
 
-	^ self on:  OllamaApi new
+	^ self on: OllamaAPI new
 ]
 
 { #category : 'examples' }
