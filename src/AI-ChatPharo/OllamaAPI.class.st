@@ -1,67 +1,113 @@
 "
-Killroy was here, but went away
+I provide integration with Ollama API for local language model inference.
+I support both the native Ollama API and the OpenAI-compatible API provided by Ollama.
 "
 Class {
-	#name : 'OllamaApi',
-	#superclass : 'Object',
+	#name : 'OllamaAPI',
+	#superclass : 'LLMChatAPI',
 	#instVars : [
-		'model',
-		'system',
-		'promptPrefix',
-		'response'
+		'baseURL',
+		'useOpenAICompatibleAPI',
+		'promptPrefix'
 	],
 	#category : 'AI-ChatPharo-Ollama',
 	#package : 'AI-ChatPharo',
 	#tag : 'Ollama'
 }
 
-{ #category : 'ollama models' }
-OllamaApi class >> modelNames [
-	"returns an array with one item per model."
-	^ self models collect: [ :ollamaModel | ollamaModel at: 'name' ]
-]
-
-{ #category : 'ollama models' }
-OllamaApi class >> models [
-	"returns an array with one item per model. Each item has nested informations, and some arrays"
-	| response  |
-
-	response := ZnClient new get: 'http://localhost:11434/api/tags'.
-	^ (STONJSON fromString: response) at: 'models'  .
+{ #category : 'instance creation' }
+OllamaAPI class >> new [
+	^ self newWithOpenAICompatibleAPI: true
 ]
 
 { #category : 'instance creation' }
-OllamaApi class >> newSystem: synstemText promptPrefix: promptPrefixText [
-	"Create and return an instance with predefined system and prompt prefix for Ollama queries."
-	| prompter |
-	prompter := self new.
-	prompter system: synstemText.
-	prompter promptPrefix: promptPrefixText.
-	^ prompter 
+OllamaAPI class >> newWithNativeAPI [
+	^ self newWithOpenAICompatibleAPI: false
+]
+
+{ #category : 'instance creation' }
+OllamaAPI class >> newWithOpenAICompatibleAPI: aBoolean [
+	^ self basicNew
+		initializeWithOpenAICompatibleAPI: aBoolean;
+		yourself
 ]
 
 { #category : 'ollama models' }
-OllamaApi class >> ollamaVersion [
+OllamaAPI class >> ollamaVersion [
 	"Retrieve the Ollama version"
 	| response  |
 	
 	response := ZnClient new get: 'http://localhost:11434/api/version'.
-	^ (STONJSON fromString: response) at: 'version'  .
+	^ (STONJSON fromString: response) at: 'version'
 ]
 
-{ #category : 'ollama models' }
-OllamaApi >> getResponseForHistory: history [
+{ #category : 'instance creation' }
+OllamaAPI class >> system: systemText [
+	"Create and return an instance with predefined system text for Ollama queries."
+	| api |
+	api := self new.
+	api system: systemText.
+	^ api 
+]
 
+{ #category : 'instance creation' }
+OllamaAPI class >> system: systemText tools: toolsCollection [
+	"Create and return an instance with predefined system text and tools for Ollama queries."
+	| api |
+	api := self new.
+	api system: systemText.
+	api tools: toolsCollection.
+	^ api 
+]
+
+{ #category : 'private' }
+OllamaAPI >> applyToolFunction: functionName arguments: arguments [
+	"Apply a tool function with the given name and arguments"
+	
+	tools do: [ :tool |
+		tool name = functionName ifTrue: [
+			^ [ tool applyTo: arguments ] on: Error do: [ Dictionary with: 'error' -> 'Error' ] ] ].
+	^ Dictionary with: 'error' -> ('There is no function named "{1}"' format: { functionName })
+]
+
+{ #category : 'accessing' }
+OllamaAPI >> baseURL [
+	^ baseURL
+]
+
+{ #category : 'private' }
+OllamaAPI >> client [
+	"Return a ZnClient configured for the baseURL"
+	
+	^ ZnClient new
+		url: baseURL;
+		yourself
+]
+
+{ #category : 'accessing' }
+OllamaAPI >> getResponseForHistory: history [
+	"Gets a response from Ollama based on the chat history"
+	
+	^ useOpenAICompatibleAPI
+		ifTrue: [ self getResponseWithOpenAICompatibleAPIForHistory: history ]
+		ifFalse: [ self getResponseWithNativeAPIForHistory: history ]
+]
+
+{ #category : 'accessing - private' }
+OllamaAPI >> getResponseWithNativeAPIForHistory: history [
+	"Gets a response using the native Ollama API"
+	
 	^ ChatPharoHistorySaver role: 'assistant'
-		content: (self promptPrefix: history asPromptPrefix; getResponseForPrompt: nil)
+		content: (self promptPrefix: history asPromptPrefix; getResponseWithNativeAPIForPrompt: nil)
 ]
 
-{ #category : 'ollama models' }
-OllamaApi >> getResponseForPrompt: prompt [
-	"Sends a prompt to an API, receives JSON response, and extracts the 'response' value"
-	| apiGenerateUrl jsonResponse requestDictionary requestBody|
+{ #category : 'accessing - private' }
+OllamaAPI >> getResponseWithNativeAPIForPrompt: prompt [
+	"Sends a prompt to the native Ollama API, receives JSON response, and extracts the 'response' value"
+	| apiGenerateUrl jsonResponse requestDictionary requestBody response |
+	
 	apiGenerateUrl := 'http://localhost:11434/api/generate'.
-	requestDictionary := Dictionary newFrom:  { 
+	requestDictionary := Dictionary newFrom: { 
 		#model -> model.
 		#system -> self system.
 		#prompt -> (String streamContents: [ :stream |
@@ -69,95 +115,154 @@ OllamaApi >> getResponseForPrompt: prompt [
 			prompt ifNotNil: [ stream nextPutAll: ' '; nextPutAll: prompt ] ]).
 		#stream -> false.
 		#options -> (Dictionary newFrom: {
-    		#temperature -> 0})
-	} .
+			#temperature -> 0})
+	}.
+	
 	requestBody := (STONJSON toString: requestDictionary).
 	jsonResponse := ZnClient new
-	    url: apiGenerateUrl;
-	    entity: (ZnEntity with: requestBody);
-	    post;
-	    contents.
-	self response: ((STONJSON fromString: jsonResponse) at: 'response').
-	^ self response contents.
+		url: apiGenerateUrl;
+		entity: (ZnEntity with: requestBody);
+		post;
+		contents.
+	
+	response := (STONJSON fromString: jsonResponse) at: 'response'.
+	^ response
+]
+
+{ #category : 'accessing - private' }
+OllamaAPI >> getResponseWithOpenAICompatibleAPIForHistory: history [
+	"Gets a response using the OpenAI-compatible API provided by Ollama"
+	
+	| messages data response message |
+
+	messages := Array streamContents: [ :stream |
+		system ifNotNil: [
+			stream nextPut: (Dictionary with: 'role' -> 'system' with: 'content' -> system) ].
+		history putOpenAIChatMessagesOn: stream ].
+	
+	data := Dictionary with: 'model' -> model with: 'messages' -> messages.
+	tools ifNotNil: [
+		data add: 'tools' -> (tools collect: [ :tool | tool openAIChatTool ] as: Array);
+			add: 'tool_choice' -> 'auto' ].
+	
+	response := self client addPath: #('chat' 'completions');
+		entity: (ZnEntity json: (STONJSON toString: data));
+		timeout: (Duration minutes: 5) asSeconds;
+		post;
+		response.
+		
+	response isSuccess ifFalse: [ Error signal: 'Could not get chat completion' ].
+	message := ((STONJSON fromString: response contents) at: 'choices') first at: 'message'.
+	
+	^ ChatPharoHistorySaver role: 'assistant'
+		content: (message at: 'content' ifAbsent: [ nil ])
+		toolCalls: (self toolCallsFromMessage: message)
 ]
 
 { #category : 'initialization' }
-OllamaApi >> initialize [ 
+OllamaAPI >> initialize [
 	super initialize.
-	self model: (self class modelNames) first.
-	self system: ''.
 	self promptPrefix: ''.
+	self model: self modelNames first.
 ]
 
-{ #category : 'accessing' }
-OllamaApi >> model [
-
-	^ model
+{ #category : 'initialization' }
+OllamaAPI >> initializeWithOpenAICompatibleAPI: aBoolean [
+	self initialize.
+	useOpenAICompatibleAPI := aBoolean.
+	baseURL := useOpenAICompatibleAPI
+		ifTrue: [ ZnUrl fromString: 'http://localhost:11434/v1' ]
+		ifFalse: [ ZnUrl fromString: 'http://localhost:11434/api' ].
 ]
 
-{ #category : 'accessing' }
-OllamaApi >> model: anObject [
-
-	model := anObject
-]
-
-{ #category : 'ollama models' }
-OllamaApi >> modelInformation [
+{ #category : 'model information' }
+OllamaAPI >> modelInformation [
 	"Show information about a model including details, modelfile, template, parameters, license, system prompt."
 	"Check https://github.com/ollama/ollama/blob/main/docs/api.md#show-model-information for details"
-	| url jsonResponse requestBody  response|
+	| url jsonResponse requestBody response |
+	
 	url := 'http://localhost:11434/api/show'.
-
 	requestBody := STONJSON toString: { 
 		#model -> model.
 	} asDictionary.
+	
 	jsonResponse := ZnClient new
-	    url: url;
-	    entity: (ZnEntity with: requestBody);
-	    post;
-	    contents.
+		url: url;
+		entity: (ZnEntity with: requestBody);
+		post;
+		contents.
+		
 	response := (STONJSON fromString: jsonResponse).
-	^ response contents.
-]
-
-{ #category : 'ollama models' }
-OllamaApi >> modelNames [
-
-	^ self class modelNames
-]
-
-{ #category : 'accessing' }
-OllamaApi >> promptPrefix [
-
-	^ promptPrefix
-]
-
-{ #category : 'accessing' }
-OllamaApi >> promptPrefix: anObject [
-
-	promptPrefix := anObject
-]
-
-{ #category : 'accessing' }
-OllamaApi >> response [
-
 	^ response
 ]
 
 { #category : 'accessing' }
-OllamaApi >> response: anObject [
+OllamaAPI >> modelNames [
+	"Return the available model names from Ollama"
+	
+	^ useOpenAICompatibleAPI
+		ifTrue: [ self modelNamesFromOpenAICompatibleAPI ]
+		ifFalse: [ self modelNamesFromNativeAPI ]
+]
 
-	response := anObject
+{ #category : 'accessing - private' }
+OllamaAPI >> modelNamesFromNativeAPI [
+	"Returns model names from the native Ollama API"
+	
+	| response |
+	response := ZnClient new get: 'http://localhost:11434/api/tags'.
+	^ (STONJSON fromString: response) at: 'models' ifPresent: [ :models |
+		models collect: [ :ollamaModel | ollamaModel at: 'name' ] ]
+]
+
+{ #category : 'accessing - private' }
+OllamaAPI >> modelNamesFromOpenAICompatibleAPI [
+	"Returns model names from the OpenAI-compatible API"
+	
+	| response |
+	response := self client addPathSegment: 'models'; get; response.
+	response isSuccess ifFalse: [ Error signal: 'Could not retrieve models' ].
+	^ ((STONJSON fromString: response contents) at: 'data') collect: [ :modelObject | modelObject at: 'id' ]
 ]
 
 { #category : 'accessing' }
-OllamaApi >> system [
-
-	^ system
+OllamaAPI >> promptPrefix [
+	^ promptPrefix
 ]
 
 { #category : 'accessing' }
-OllamaApi >> system: anObject [
+OllamaAPI >> promptPrefix: anObject [
+	promptPrefix := anObject
+]
 
-	system := anObject
+{ #category : 'private' }
+OllamaAPI >> toolCallsFromMessage: message [
+	"Extracts and processes tool calls from an OpenAI API response message"
+	
+	^ message at: 'tool_calls'
+		ifPresent: [ :toolCalls |
+			toolCalls collect: [ :toolCall |
+				| function functionName arguments content |
+				function := toolCall at: 'function'.
+				functionName := function at: 'name'.
+				arguments := function at: 'arguments'.
+				content := STONJSON toString: (self applyToolFunction: functionName
+					arguments: ([ STONJSON fromString: arguments ] on: STONReaderError
+						do: [ Dictionary with: 'error' -> 'Invalid arguments' ])).
+				ChatPharoHistorySaverToolCall id: (toolCall at: 'id') functionName: functionName
+					arguments: arguments content: content ] ]
+		ifAbsent: [ nil ]
+]
+
+{ #category : 'accessing' }
+OllamaAPI >> useOpenAICompatibleAPI [
+	^ useOpenAICompatibleAPI
+]
+
+{ #category : 'accessing' }
+OllamaAPI >> useOpenAICompatibleAPI: aBoolean [
+	useOpenAICompatibleAPI := aBoolean.
+	baseURL := useOpenAICompatibleAPI
+		ifTrue: [ ZnUrl fromString: 'http://localhost:11434/v1' ]
+		ifFalse: [ ZnUrl fromString: 'http://localhost:11434/api' ].
 ]
