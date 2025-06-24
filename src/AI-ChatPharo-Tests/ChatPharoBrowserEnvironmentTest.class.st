@@ -4,8 +4,9 @@ Class {
 	#instVars : [
 		'env'
 	],
-	#category : 'AI-ChatPharo-Tests',
-	#package : 'AI-ChatPharo-Tests'
+	#category : 'AI-ChatPharo-Tests-Env',
+	#package : 'AI-ChatPharo-Tests',
+	#tag : 'Env'
 }
 
 { #category : 'running' }

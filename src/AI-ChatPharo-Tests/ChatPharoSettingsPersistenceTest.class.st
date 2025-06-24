@@ -4,9 +4,9 @@ Class {
 	#instVars : [
 		'settings'
 	],
-	#category : 'AI-ChatPharo-Tests-Core',
+	#category : 'AI-ChatPharo-Tests-Settings',
 	#package : 'AI-ChatPharo-Tests',
-	#tag : 'Core'
+	#tag : 'Settings'
 }
 
 { #category : 'running' }
@@ -41,6 +41,17 @@ ChatPharoSettingsPersistenceTest >> testBrowserToolsPersistence [
     settings disableBrowserTool: first.
     loaded := ChatPharoSettings loadOrNew.
     self deny: (loaded browserToolsEnabled includes: first)
+]
+
+{ #category : 'running' }
+ChatPharoSettingsPersistenceTest >> testLoadOrNewHandlesCorruptedFile [
+
+    | path loaded |
+    path := FileLocator imageDirectory / 'chatpharo-settings.ston'.
+    path writeStreamDo: [ :stream | stream nextPutAll: 'invalid' ].
+    loaded := ChatPharoSettings loadOrNew.
+    self assert: loaded class equals: ChatPharoSettings.
+    self assert: loaded agent class equals: ChatPharoNullAgent.
 ]
 
 { #category : 'running' }

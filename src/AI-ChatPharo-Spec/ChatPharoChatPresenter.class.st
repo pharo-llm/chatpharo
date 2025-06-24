@@ -98,12 +98,16 @@ ChatPharoChatPresenter >> initializeWindow: aWindowPresenter [
 { #category : 'initialization' }
 ChatPharoChatPresenter >> sendMessage [
 
-        | text |
-        text := messageTextField text.
-        submitButton enabled: false.
-        messageTextField enabled: false.
-        messageTextField text: 'Running...'.
-        model sendMessage: text
+	| text |
+	text := messageTextField text.
+	        (model agent isConfigured)
+                ifFalse: [
+                        self inform: model agent configurationErrorMessage.
+                        ^ self ].
+	submitButton enabled: false.
+	messageTextField enabled: false.
+	messageTextField text: 'Running...'.
+	model sendMessage: text
 ]
 
 { #category : 'accessing - model' }

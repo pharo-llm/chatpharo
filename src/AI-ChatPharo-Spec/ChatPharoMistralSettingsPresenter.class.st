@@ -87,7 +87,8 @@ ChatPharoMistralSettingsPresenter >> hostField: anObject [
 ChatPharoMistralSettingsPresenter >> initializePresenters [
 
 	super initializePresenters.
-	hostField := self newTextInput placeholder: 'api.mistral.ai'.
+	hostField := self newTextInput placeholder: 'api.mistral.ai';
+	text: model host.
 	apiKeyField := self newTextInput placeholder: 'API-KEY'.
 	modelDrop := SpDropListPresenter new.
 	self refreshModels.
@@ -100,11 +101,11 @@ ChatPharoMistralSettingsPresenter >> initializePresenters [
 		                    placeholder: '0.0';
 		                    text: model temperature asString;
 		                    yourself.
-	    testButton := self newButton
-                               label: 'Test Connection';
-                               icon: (self iconNamed: #glamorousGo);
-                               action: [ self testConnection ];
-                               yourself
+	testButton := self newButton
+		              label: 'Test Connection';
+		              icon: (self iconNamed: #glamorousGo);
+		              action: [ self testConnection ];
+		              yourself
 ]
 
 { #category : 'accessing' }

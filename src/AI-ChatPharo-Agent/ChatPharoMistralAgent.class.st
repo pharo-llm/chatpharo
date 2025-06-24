@@ -54,6 +54,12 @@ ChatPharoMistralAgent >> apiKey: anObject [
         ChatPharoSettings saveDefault
 ]
 
+{ #category : 'accessing' }
+ChatPharoMistralAgent >> configurationErrorMessage [
+
+	^ 'Please complete all required fields.'
+]
+
 { #category : 'initialization' }
 ChatPharoMistralAgent >> getResponseForPrompt: prompt [
 
@@ -98,6 +104,12 @@ ChatPharoMistralAgent >> initialize [
         apiKey := ''.
         model := ''.
         temperature := 0.7
+]
+
+{ #category : 'accessing' }
+ChatPharoMistralAgent >> isConfigured [
+
+	^ host notEmpty and: [ apiKey notEmpty and: [ model notEmpty ] ]
 ]
 
 { #category : 'initialization' }

@@ -139,8 +139,6 @@ ChatPharoOllamaSettingsPresenter >> initializePresenters [
 		                 label: 'Install';
 		                 icon: (self iconNamed: #add);
 		                 action: [
-				                 model class pullModel: installInput text.
-				                 self refreshModels.
 				                 (model class isValidModel: installInput text)
 					                 ifTrue: [
 							                 model class pullModel: installInput text.
@@ -153,8 +151,12 @@ ChatPharoOllamaSettingsPresenter >> initializePresenters [
 		                label: 'Delete';
 		                icon: (self iconNamed: #delete);
 		                action: [
-				                model class deleteModel: installInput text.
-				                self refreshModels ];
+						(model class isValidModel: installInput text)
+							ifTrue: [
+								model class deleteModel: installInput text.
+								self refreshModels ]
+							ifFalse: [
+								self inform: 'Model ' , installInput text , ' not found.' ] ];
 		                yourself.
 	        testButton := self newButton
                                label: 'Test Connection';
