@@ -77,12 +77,6 @@ ChatPharoAgent >> browserSystemPrompt: aString [
 ]
 
 { #category : 'accessing' }
-ChatPharoAgent >> configurationErrorMessage [
-
-    ^ 'Agent is missing required settings.'
-]
-
-{ #category : 'accessing' }
 ChatPharoAgent >> copyForChat [ 
 
     | clone |
@@ -117,12 +111,6 @@ ChatPharoAgent >> initialize [
 	promptPrefix := ''.
 	response := ''.
 	onToolExecution := nil
-]
-
-{ #category : 'accessing' }
-ChatPharoAgent >> isConfigured [ 
-
-    ^ true
 ]
 
 { #category : 'accessing' }

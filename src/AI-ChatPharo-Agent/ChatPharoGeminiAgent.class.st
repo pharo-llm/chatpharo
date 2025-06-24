@@ -81,12 +81,6 @@ ChatPharoGeminiAgent >> apiKey: anObject [
 	ChatPharoSettings saveDefault
 ]
 
-{ #category : 'accessing' }
-ChatPharoGeminiAgent >> configurationErrorMessage [
-
-	^ 'Please complete all required fields.'
-]
-
 { #category : 'initialization' }
 ChatPharoGeminiAgent >> getResponseForPrompt: userPrompt [
 
@@ -131,12 +125,6 @@ ChatPharoGeminiAgent >> initialize [
 	apiKey := ''.
 	model := ''.
 	temperature := 0.7
-]
-
-{ #category : 'accessing' }
-ChatPharoGeminiAgent >> isConfigured [
-
-	^ host notEmpty and: [ apiKey notEmpty and: [ model notEmpty ] ]
 ]
 
 { #category : 'initialization' }

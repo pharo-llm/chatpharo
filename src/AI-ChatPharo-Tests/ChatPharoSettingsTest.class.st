@@ -5,9 +5,9 @@ Class {
 		'settings',
 		'mockApi'
 	],
-	#category : 'AI-ChatPharo-Tests-Settings',
+	#category : 'AI-ChatPharo-Tests-Core',
 	#package : 'AI-ChatPharo-Tests',
-	#tag : 'Settings'
+	#tag : 'Core'
 }
 
 { #category : 'running' }

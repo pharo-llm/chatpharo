@@ -32,21 +32,12 @@ ChatPharoOllamaAgent class >> defaultPort [
 ]
 
 { #category : 'api' }
-ChatPharoOllamaAgent class >> validateModel: aModelName [
-
-    (self isValidModel: aModelName) ifFalse: [
-        ^ self error: 'Invalid model name or model does not exist on Ollama server' ].
-]
-
-{ #category : 'api' }
 ChatPharoOllamaAgent class >> deleteModel: aModelName [ 
+
 
         self isReachable ifFalse: [
                 ^ self error: 'Ollama server not reachable' ].
-        
-		self validateModel: aModelName.
-		
-		ZnClient new
+        ZnClient new
                 url:
                         'http://' , self defaultHost , ':' , self defaultPort , '/api/delete';
                 entity: (ZnEntity with:
@@ -128,9 +119,6 @@ ChatPharoOllamaAgent class >> pullModel: aModelName [
 
 	self isReachable ifFalse: [
 		^ self error: 'Ollama server not reachable' ].
-	
-	self validateModel: aModelName.
-	
 	ZnClient new
 		url:
 			'http://' , self defaultHost , ':' , self defaultPort , '/api/pull';
@@ -146,32 +134,38 @@ ChatPharoOllamaAgent class >> settingsPresenterFor: anAgent [
 	^ ChatPharoOllamaSettingsPresenter on: anAgent
 ]
 
-{ #category : 'accessing' }
-ChatPharoOllamaAgent >> configurationErrorMessage [
-
-	^ 'Please complete all required fields.'
-]
-
 { #category : 'initialization' }
 ChatPharoOllamaAgent >> getResponseForPrompt: prompt [
 
-	| api result |
-	api := ChatPharoTool
-		       ollamaWithSystem: self systemPrompt
-		       tools: self tools.
-	self onToolExecution ifNotNil: [
-		api onToolExecution: self onToolExecution ].
-	model ifNotEmpty: [ api model: model ].
-	self history ifNil: [ self history: ChatPharoHistory new ].
-	self history addMessage:
-		(ChatPharoHistorySaver role: 'user' content: prompt).
-	result := api getResponseForHistory: self history.
-	self history addMessage: result.
+	| apiGenerateUrl jsonResponse requestDictionary |
+	apiGenerateUrl := 'http://' , host , ':' , port , '/api/generate'.
 
-	[ result toolCalls notNil ] whileTrue: [
-			result := api getResponseForHistory: self history.
-			self history addMessage: result ].
-	^ result content
+	requestDictionary := Dictionary newFrom: {
+			                     (#model -> model).
+			                     (#systemPrompt -> self systemPrompt).
+			                     (#prompt
+			                      -> (String streamContents: [ :stream |
+						                       stream nextPutAll: self promptPrefix.
+						                       prompt ifNotNil: [
+								                       stream
+									                       nextPutAll: ' ';
+									                       nextPutAll: prompt ] ])).
+			                     (#stream -> false).
+			                     (#options
+			                      ->
+			                      (Dictionary newFrom:
+				                       { (#temperature -> temperature) })) }.
+
+	jsonResponse := ZnClient new
+		                url: apiGenerateUrl;
+		                entity:
+			                (ZnEntity with:
+					                 (STONJSON toString: requestDictionary));
+		                post;
+		                contents.
+
+	self response: ((STONJSON fromString: jsonResponse) at: 'response').
+	^ self response contents
 ]
 
 { #category : 'accessing' }
@@ -193,22 +187,17 @@ ChatPharoOllamaAgent >> initialize [
 	host := self class defaultHost.
 	port := self class defaultPort.
 	temperature := 0.0.
-	self model ifNil: [
-			| availableModels |
-			availableModels := self class modelNames.
+	self model isNil ifTrue: [
+	    | availableModels |
+	    availableModels := self class modelNames.
 
-			availableModels isEmpty ifFalse: [
-				self model: availableModels first ] ].
+	    availableModels isEmpty
+		    ifFalse: [ self model: availableModels first ].
+    ].
 
-	self systemPrompt: self class defaultSystemPrompt.
+	self systemPrompt: ''.
 	self promptPrefix: ''.
 	packageName := ''
-]
-
-{ #category : 'accessing' }
-ChatPharoOllamaAgent >> isConfigured [ 
-
-        ^ host notEmpty and: [ port notEmpty and: [ model notEmpty ] ]
 ]
 
 { #category : 'initialization' }
@@ -234,10 +223,10 @@ ChatPharoOllamaAgent >> modelNames [
 
 { #category : 'accessing' }
 ChatPharoOllamaAgent >> packageName: aString [ 
-packageName := aString.
-	self systemPrompt: (self browserSystemPrompt
-			 copyReplaceAll: '{packageName}'
-			 with: packageName)
+
+        packageName := aString.
+        self systemPrompt: (ChatPharoAgent defaultSystemPrompt
+                copyReplaceAll: '{packageName}' with: packageName)
 ]
 
 { #category : 'accessing' }
