@@ -30,3 +30,28 @@ jobs:
       - run: smalltalkci -s ${{ matrix.smalltalk }}
         shell: bash
         timeout-minutes: 15
+
+  sync-wiki:
+    needs: build  # This makes sure all matrix jobs must pass first
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout source repository
+        uses: actions/checkout@v4
+
+      - name: Set up Git user
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Copy wiki file to wiki repository
+        run: |
+          cp doc/ChatPharo-wiki.md wiki/ChatPharo-wiki.md
+
+      - name: Commit and push changes
+        run: |
+          cd wiki
+          git add Home.md
+          git commit -m "Update wiki from project repo [automated]" || echo "No changes to commit"
+          git push
