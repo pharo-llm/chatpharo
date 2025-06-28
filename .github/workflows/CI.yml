@@ -34,7 +34,7 @@ jobs:
   sync-wiki:
     needs: build  # This makes sure all matrix jobs must pass first
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    # if: github.ref == 'refs/heads/main'
 
     steps:
       - name: Checkout source repository
