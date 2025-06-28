@@ -47,11 +47,11 @@ jobs:
 
       - name: Copy wiki file to wiki repository
         run: |
-          cp doc/ChatPharo-wiki.md wiki/ChatPharo-wiki.md
+          cp doc/ChatPharo-Wiki.md wiki/ChatPharo-Wiki.md
 
       - name: Commit and push changes
         run: |
           cd wiki
-          git add Home.md
+          git add ChatPharo-Wiki.md
           git commit -m "Update wiki from project repo [automated]" || echo "No changes to commit"
           git push
