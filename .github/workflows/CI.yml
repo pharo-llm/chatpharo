@@ -49,14 +49,15 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: 'omarabedelkader/ChatPharo.wiki'
+          path: wiki-repo
 
       - name: Copy wiki file to wiki repository
         run: |
-          cp doc/ChatPharo-Wiki.md ChatPharo.wiki/ChatPharo-Wiki.md
+          cp ../../ChatPharo/ChatPharo/doc/ChatPharo-Wiki.md wiki-repo/ChatPharo-Wiki.md
 
       - name: Commit and push changes
         run: |
-          cd ChatPharo.wiki
+          cd wiki-repo
           git add ChatPharo-Wiki.md
           git commit -m "Update wiki from project repo [automated]" || echo "No changes to commit"
           git push
