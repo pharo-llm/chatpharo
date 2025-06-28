@@ -50,6 +50,7 @@ jobs:
         with:
           repository: 'omarabedelkader/ChatPharo.wiki'
           path: wiki-repo
+          token: ${{ secrets.PERSONAL_TOKEN }}
 
       - name: Copy wiki file to wiki repository
         run: |
