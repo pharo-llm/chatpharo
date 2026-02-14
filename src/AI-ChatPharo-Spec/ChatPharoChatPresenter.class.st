@@ -439,6 +439,7 @@ messagesLayout remove: thinkingPresenter ifAbsent: [ "not shown" ].
 ChatPharoChatPresenter >> updateAttachedFilesDisplay [
 	"Update the display of attached files"
 
+	| fileRowPresenter |
 	attachedFilesLayout := SpBoxLayout newVertical spacing: 2.
 	attachedFilesPresenter layout: attachedFilesLayout.
 
@@ -465,5 +466,8 @@ ChatPharoChatPresenter >> updateAttachedFilesDisplay [
 			              add: removeButton expand: false;
 			              yourself.
 
-		attachedFilesLayout add: fileLayout expand: false ]
+		fileRowPresenter := SpPresenter new.
+		fileRowPresenter layout: fileLayout.
+
+		attachedFilesLayout add: fileRowPresenter expand: false ]
 ]
