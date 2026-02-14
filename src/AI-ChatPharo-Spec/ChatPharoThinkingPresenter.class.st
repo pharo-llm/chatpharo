@@ -9,7 +9,8 @@ Class {
 		'showDetailsButton',
 		'thinkingContent',
 		'thinkingStartedAt',
-		'thinkingElapsedSeconds'
+		'thinkingElapsedSeconds',
+		'modelNameLabel'
 	],
 	#category : 'AI-ChatPharo-Spec-Ethics',
 	#package : 'AI-ChatPharo-Spec',
@@ -37,18 +38,17 @@ ChatPharoThinkingPresenter >> agent [
 
 { #category : 'layout' }
 ChatPharoThinkingPresenter >> defaultLayout [
+
 	| layout |
 	layout := SpBoxLayout newHorizontal
-		spacing: 5;
-		vAlignCenter;
-		add: statusLabel expand: false;
-		add: dotsLabel expand: false;
-		yourself.
-	
-	"Only add details button if agent supports thinking"
-	self shouldShowThinkingUI ifTrue: [
-		layout add: showDetailsButton expand: false ].
-	
+		          spacing: 5;
+		          vAlignCenter;
+		          add: modelNameLabel expand: false;
+		          add: statusLabel expand: false;
+		          add: dotsLabel expand: false;
+		          yourself. 
+	self shouldShowThinkingUI ifTrue: [ layout add: showDetailsButton expand: false ].
+
 	^ layout
 ]
 
@@ -86,10 +86,15 @@ ChatPharoThinkingPresenter >> initializePresenters [
 	statusLabel := self newLabel
 		               label: 'Thinking';
 		               yourself.
+		modelNameLabel := self newLabel
+			          label: self modelNameLabelText;
+			          help: 'Current model used for this chat';
+			          yourself.
+			
 	dotsLabel := self newLabel
 		             label: '';
 		             yourself.
-		showDetailsButton := self newButton
+	showDetailsButton := self newButton
 		                     label: 'Show Details';
 		                     action: [ self openThinkingDetails ];
 		                     yourself
@@ -99,6 +104,20 @@ ChatPharoThinkingPresenter >> initializePresenters [
 ChatPharoThinkingPresenter >> isFinished [
 
 	^ currentPhase = #finished
+]
+
+{ #category : 'initialization' }
+ChatPharoThinkingPresenter >> modelNameLabelText [
+
+	| currentAgent modelName |
+	currentAgent := self agent.
+	modelName := (currentAgent respondsTo: #model)
+		             ifTrue: [ currentAgent model ]
+		             ifFalse: [ '' ].
+	modelName ifNil: [ modelName := '' ].
+	modelName := modelName asString trimBoth.
+
+	^ 'Model: ' , (modelName ifEmpty: [ 'Not selected' ])
 ]
 
 { #category : 'initialization' }
@@ -195,5 +214,6 @@ ChatPharoThinkingPresenter >> updateStatusLabel [
 				        ([ #searching ] -> [ 'Searching code' ]).
 				        ([ #finished ] -> [ 'End of thinking (' , self formattedElapsedThinkingTime , ')' ]) }
 		        otherwise: [ 'Thinking' ].
+		modelNameLabel label: self modelNameLabelText.
 	statusLabel label: text
 ]

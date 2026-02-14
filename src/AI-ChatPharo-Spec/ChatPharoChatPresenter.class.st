@@ -7,7 +7,6 @@ Class {
 	#instVars : [
 		'messagesLayout',
 		'messageTextField',
-		'modelNameLabel',
 		'submitButton',
 		'cancelButton',
 		'newChatButton',
@@ -141,7 +140,6 @@ ChatPharoChatPresenter >> defaultLayout [
 		  add: attachedFilesPresenter expand: false;
 		  add: (SpBoxLayout newHorizontal
 				   spacing: 5;
-				   add: modelNameLabel expand: false;
 				   add: messageTextField;
 				   add: submitButton expand: false;
 				   add: cancelButton expand: false;
@@ -208,11 +206,6 @@ ChatPharoChatPresenter >> initializePresenters [
 	messageTextField := self newTextInput
 		                    placeholder: 'Type your message here...';
 		                    yourself.
-
-	modelNameLabel := self newLabel
-		                  label: self modelNameLabelText;
-		                  help: 'Current model used for this chat';
-		                  yourself.
 
 	submitButton := self newButton
 		                label: '';
@@ -286,20 +279,6 @@ ChatPharoChatPresenter >> messageText [
 	"Returns the current text in the message input field"
 
 	^ messageTextField text
-]
-
-{ #category : 'layout' }
-ChatPharoChatPresenter >> modelNameLabelText [
-
-	| agent modelName |
-	agent := model agent.
-	modelName := (agent respondsTo: #model)
-		             ifTrue: [ agent model ]
-		             ifFalse: [ '' ].
-	modelName ifNil: [ modelName := '' ].
-	modelName := modelName asString trimBoth.
-
-	^ 'Model: ' , (modelName ifEmpty: [ 'Not selected' ])
 ]
 
 { #category : 'initialization' }
