@@ -70,3 +70,25 @@ ChatPharoChatPresenterTest >> testHasMessagesLayout [
 	self assert: presenter isNotNil.
 	self assert: (presenter isKindOf: SpPresenter)
 ]
+
+{ #category : 'running' }
+ChatPharoChatPresenterTest >> testSubmitDisabledForWhitespaceOnlyMessage [
+
+	| submitButton textField |
+	textField := presenter instVarNamed: #messageTextField.
+	submitButton := presenter instVarNamed: #submitButton.
+	textField text: '   '.
+	presenter updateSubmitButtonState.
+	self deny: submitButton isEnabled
+]
+
+{ #category : 'running' }
+ChatPharoChatPresenterTest >> testSubmitEnabledWhenMessageContainsText [
+
+	| submitButton textField |
+	textField := presenter instVarNamed: #messageTextField.
+	submitButton := presenter instVarNamed: #submitButton.
+	textField text: 'Hello'.
+	presenter updateSubmitButtonState.
+	self assert: submitButton isEnabled
+]
