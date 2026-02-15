@@ -10,9 +10,10 @@ Class {
 }
 
 { #category : 'private - uffi' }
-ChatPharoToolMockAgent >> getResponseForPrompt: prompt [ 
-    toolExecution ifNotNil: [ toolExecution value ].
-    ^ super getResponseForPrompt: prompt
+ChatPharoToolMockAgent >> getResponseForPrompt: prompt [
+
+	toolExecution ifNotNil: [ :blk | blk cull: 'mock-tool' ].
+	^ super getResponseForPrompt: prompt
 ]
 
 { #category : 'private - ffi' }
