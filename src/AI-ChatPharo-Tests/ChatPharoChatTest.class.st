@@ -312,19 +312,19 @@ ChatPharoChatTest >> testSendMessageAddsAssistantResponse [
 ]
 
 { #category : 'running' }
-ChatPharoChatTest >> testToolExecutionCallbackTriggered [ 
+ChatPharoChatTest >> testToolExecutionCallbackTriggered [
 
-    | count toolAgent |
-    count := 0.
-    toolAgent := ChatPharoToolMockAgent new.
-    chat agent: toolAgent.
-    chat whenToolExecutionDo: [ count := count + 1 ].
+	| count toolAgent |
+	count := 0.
+	toolAgent := ChatPharoToolMockAgent new.
+	chat agent: toolAgent.
+	chat whenToolExecutionDo: [ count := count + 1 ].
 
-    chat sendMessage: 'hi'.
+	chat sendMessage: 'hi'.
 
-    [ (chat instVarNamed: #promptProcess) isTerminated ] whileFalse: [ (Delay forMilliseconds: 10) wait ].
+	[ (chat instVarNamed: #promptProcess) isTerminated ] whileFalse: [ (Delay forMilliseconds: 10) wait ].
 
-    self assert: count equals: 0.
+	self assert: count equals: 1
 ]
 
 { #category : 'running' }
