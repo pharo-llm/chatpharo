@@ -147,7 +147,7 @@ ChatPharoChatPresenter >> defaultLayout [
 				   spacing: 5;
 				   add: moreMenuButton width: 30;
 				   add: messageTextField;
-				   add: submitButton expand: false;
+				   add: submitButton width: 30;
 				   add: cancelButton expand: false;
 				   yourself)
 		  expand: false;
