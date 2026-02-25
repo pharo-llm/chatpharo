@@ -17,6 +17,7 @@ Class {
 		'thinkingPresenter',
 		'errorPresenter',
 		'moreMenuButton',
+		'moreMenuButtonWrapper',
 		'attachButton',
 		'attachedFiles',
 		'attachedFilesLayout',
@@ -145,7 +146,7 @@ ChatPharoChatPresenter >> defaultLayout [
 		  add: attachedFilesPresenter expand: false;
 		  add: (SpBoxLayout newHorizontal
 				   spacing: 5;
-				   add: moreMenuButton expand: false;
+				   add: moreMenuButtonWrapper withConstraints: [:c | c width: 30];
 				   add: messageTextField;
 				   add: submitButton expand: false;
 				   add: cancelButton expand: false;
@@ -249,6 +250,10 @@ ChatPharoChatPresenter >> initializePresenters [
 		                  icon: (self iconNamed: #add);
 		                  help: 'More options';
 		                  yourself.
+	moreMenuButtonWrapper := SpPresenter new.
+	moreMenuButtonWrapper layout: (SpBoxLayout newVertical
+			 add: moreMenuButton;
+			 yourself).
 
 	attachButton := self newButton
 		                label: '';
