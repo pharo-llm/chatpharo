@@ -150,8 +150,14 @@ ChatPharoChatPresenter >> defaultLayout [
 							   width: 30;
 							   padding: 2 ];
 				   add: messageTextField;
-				   add: submitButton expand: false;
-				   add: cancelButton expand: false;
+				   add: (SpBoxLayout newHorizontal
+						    add: submitButton expand: true;
+						    add: cancelButton expand: true;
+						    yourself)
+				   withConstraints: [ :c |
+						   c
+							   width: 30;
+							   padding: 0 ];
 				   yourself)
 		  expand: false;
 		  yourself
