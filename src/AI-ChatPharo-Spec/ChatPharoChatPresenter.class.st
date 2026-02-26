@@ -145,7 +145,10 @@ ChatPharoChatPresenter >> defaultLayout [
 		  add: attachedFilesPresenter expand: false;
 		  add: (SpBoxLayout newHorizontal
 				   spacing: 5;
-				   add: moreMenuButton expand: false;
+				   add: moreMenuButton withConstraints: [ :c |
+						   c
+							   width: 30;
+							   padding: 2 ];
 				   add: messageTextField;
 				   add: submitButton expand: false;
 				   add: cancelButton expand: false;
