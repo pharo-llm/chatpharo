@@ -58,14 +58,12 @@ ChatPharoChat >> addAssistantMessage: anAnswer [
 			thinking := answerText thinking.
 			answerText := answerText content ].
 
-(thinking isNil and: [ self agent respondsTo: #response ]) ifTrue: [
-		| agentResponse |
-		agentResponse := self agent response.
-		(agentResponse respondsTo: #thinking) ifTrue: [
-			thinking := agentResponse thinking ] ].
+	(thinking isNil and: [ self agent respondsTo: #response ]) ifTrue: [
+			| agentResponse |
+			agentResponse := self agent response.
+			(agentResponse respondsTo: #thinking) ifTrue: [ thinking := agentResponse thinking ] ].
 
 
-	history addAssistant: answerText.
 	multivers := ChatPharoSettings default multivers.
 	label := (multivers notNil and: [ multivers canExecute ])
 		         ifTrue: [ 'Multivers (' , multivers stepsCount asString , ' agents)' ]
@@ -95,17 +93,15 @@ ChatPharoChat >> addUserMessage: text [
 			message := text.
 			content := message content.
 			attachments := message attachments.
-			history addUser: (content ifNil: [ '' ]).
 			self recordUserNameIfPresentIn: content.
 			attachments ifNotNil: [ message attachments: attachments ].
 			messages add: message.
 			^ self ].
 
-	history addUser: text.
 	self recordUserNameIfPresentIn: text.
 	messages add: (ChatPharoMessage new
 			 content: text;
-			 yourself).
+			 yourself)
 ]
 
 { #category : 'running' }
@@ -190,15 +186,12 @@ ChatPharoChat >> clearChat [
 ChatPharoChat >> exportAsJson [
 
 	| entries normalized |
-	entries := Array streamContents: [ :stream |
-		history putOpenAIChatMessagesOn: stream ].
+	entries := Array streamContents: [ :stream | history putOpenAIChatMessagesOn: stream ].
 	normalized := entries collect: [ :entry |
-		| dict |
-		dict := entry copy.
-		(dict includesKey: 'role') ifTrue: [
-			(dict includesKey: 'content') ifFalse: [
-				dict at: 'content' put: '' ] ].
-		dict ].
+			              | dict |
+			              dict := entry copy.
+			              (dict includesKey: 'role') ifTrue: [ (dict includesKey: 'content') ifFalse: [ dict at: 'content' put: '' ] ].
+			              dict ].
 	^ self jsonStringFor: normalized
 ]
 
@@ -250,7 +243,10 @@ ChatPharoChat >> importFromJson: aJsonString [
     with 'role' and 'content' keys, optionally with 'tool_calls' for assistant messages."
 
 	| parsedMessages currentUserContent |
-	self clearChat.
+	self cancelMessage.
+	history clear.
+	messages removeAll.
+	self clearCache.
 	parsedMessages := STONJSON fromString: aJsonString.
 	currentUserContent := nil.
 
@@ -283,7 +279,7 @@ ChatPharoChat >> importFromJson: aJsonString [
 			 at: 'chatId' put: self identityHash;
 			 at: 'messagesImported' put: parsedMessages size;
 			 yourself).
-		
+
 	self notifyChatReset
 ]
 
@@ -434,23 +430,24 @@ ChatPharoChat >> resetConversation [
 { #category : 'running' }
 ChatPharoChat >> sendMessage: aText [
 
-	| answer multivers promptWithMemory historyPrefix combinedPrefix |
+	| answer multivers promptWithMemory |
 	self addUserMessage: aText.
 
 	(cache includesKey: aText) ifTrue: [
 			answer := cache at: aText.
 			self addAssistantMessage: answer.
 			onAnswerReceived ifNotNil: [ :blk | blk value: messages last ].
-			^ self ]. "Check if multivers mode is enabled and can execute"
+			^ self ].
+
 	multivers := ChatPharoSettings default multivers.
-	(multivers notNil and: [ multivers canExecute ]) ifTrue: [ ^ self sendMessageViaMultivers: aText ]. "Standard single-agent execution"
+	(multivers notNil and: [ multivers canExecute ]) ifTrue: [ ^ self sendMessageViaMultivers: aText ].
+
 	promptProcess := [
 		                 [
 			                 | backend |
 			                 backend := self agent.
-			                backend onToolExecution: [ :toolName | self triggerToolExecution: toolName ].
+			                 backend onToolExecution: [ :toolName | self triggerToolExecution: toolName ].
 			                 promptWithMemory := self buildPromptPrefixWithMemoryFor: aText.
-
 			                 backend promptPrefix: promptWithMemory.
 			                 answer := backend getResponseForPrompt: aText.
 			                 cache at: aText put: answer.
