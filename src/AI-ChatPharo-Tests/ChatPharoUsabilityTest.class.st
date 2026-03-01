@@ -35,29 +35,25 @@ ChatPharoUsabilityTest >> testChatAddAssistantMessageForRegularAgentUsesAssistan
 
 { #category : 'running' }
 ChatPharoUsabilityTest >> testChatAddAssistantMessageUpdatesHistory [
-        | chat history |
+        | chat |
         ChatPharoSettings default welcomeMessageEnabled: false.
         chat := ChatPharoChat new agent: ChatPharoMockAgent new.
         chat addUserMessage: 'Ping'.
         chat addAssistantMessage: 'Pong'.
-        history := chat instVarNamed: #history.
 
-        self assert: history messages size equals: 2.
-        self assert: history messages last role equals: 'assistant'.
-        self assert: history messages last content equals: 'Pong'
+        self assert: chat messages size equals: 1.
+        self assert: chat messages last answer equals: 'Pong'.
 ]
 
 { #category : 'running' }
 ChatPharoUsabilityTest >> testChatAddUserMessageAppendsToHistory [
-        | chat history |
+        | chat |
         ChatPharoSettings default welcomeMessageEnabled: false.
         chat := ChatPharoChat new agent: ChatPharoMockAgent new.
         chat addUserMessage: 'How are you?'.
-        history := chat instVarNamed: #history.
 
-        self assert: history messages size equals: 1.
-        self assert: history messages last role equals: 'user'.
-        self assert: history messages last content equals: 'How are you?'
+        self assert: chat messages size equals: 1.
+        self assert: chat messages last content equals: 'How are you?'
 ]
 
 { #category : 'running' }

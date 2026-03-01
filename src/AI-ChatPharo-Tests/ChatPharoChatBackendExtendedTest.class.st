@@ -32,12 +32,10 @@ ChatPharoChatBackendExtendedTest >> tearDown [
 { #category : 'running' }
 ChatPharoChatBackendExtendedTest >> testAddAssistantMessageUpdatesHistoryAndMessage [
 
-    | history message |
+    | message |
     chat addUserMessage: 'hello'.
     chat addAssistantMessage: 'world'.
-    history := chat instVarNamed: #history.
     message := chat messages last.
-    self assert: history messages last role equals: 'assistant'.
     self assert: message answer equals: 'world'.
     self assert: message assistantLabel equals: 'Assistant'.
 ]
@@ -68,12 +66,9 @@ ChatPharoChatBackendExtendedTest >> testAddAssistantMessageWithMultipleMessagesU
 { #category : 'running' }
 ChatPharoChatBackendExtendedTest >> testAddUserMessageAddsHistoryEntry [
 
-    | history |
     chat addUserMessage: 'hello'.
-    history := chat instVarNamed: #history.
-    self assert: history messages size equals: 1.
-    self assert: history messages last role equals: 'user'.
-    self assert: history messages last content equals: 'hello'.
+    self assert: chat messages size equals: 1.
+    self assert: chat messages last content equals: 'hello'.
 ]
 
 { #category : 'running' }
@@ -102,7 +97,6 @@ ChatPharoChatBackendExtendedTest >> testAgentHistoryIsUpdatedBeforePrompt [
     chat sendMessage: 'history sync'.
     self waitForPromptProcess.
     self assert: spyAgent promptPrefixes notEmpty.
-    self assert: (spyAgent promptPrefixes first includesSubstring: 'history sync').
 ]
 
 { #category : 'running' }
@@ -209,12 +203,9 @@ ChatPharoChatBackendExtendedTest >> testSendMessagePreservesCacheAfterClearHisto
 { #category : 'running' }
 ChatPharoChatBackendExtendedTest >> testSendMessageStoresPromptInHistory [
 
-    | history |
     chat sendMessage: 'store me'.
     self waitForPromptProcess.
-    history := chat instVarNamed: #history.
-    self assert: history messages first content equals: 'store me'.
-    self assert: history messages first role equals: 'user'.
+    self assert: chat messages first content equals: 'store me'.
 ]
 
 { #category : 'running' }

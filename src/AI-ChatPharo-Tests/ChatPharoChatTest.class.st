@@ -129,6 +129,8 @@ ChatPharoChatTest >> testEmptyMessageDoesNotCrash [
 ChatPharoChatTest >> testExportAsJsonIncludesMessages [ 
 
     | json data |
+    chat history addMessage: (ChatPharoHistoryMessage role: 'user' content: 'hello' toolCalls: nil).
+    chat history addMessage: (ChatPharoHistoryMessage role: 'assistant' content: 'world' toolCalls: nil).
     chat addUserMessage: 'hello'.
     chat addAssistantMessage: 'world'.
     json := chat exportAsJson.

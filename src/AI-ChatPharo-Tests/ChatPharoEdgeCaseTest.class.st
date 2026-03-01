@@ -30,12 +30,13 @@ ChatPharoEdgeCaseTest >> tearDown [
 ChatPharoEdgeCaseTest >> testAddAssistantMessageWithNilAnswerExportsPlaceholder [
 
 	| json data |
-	chat addUserMessage: 'Hello'.
-	chat addAssistantMessage: nil.
+	chat history addMessage: (ChatPharoHistoryMessage role: 'user' content: 'Hello' toolCalls: nil).
+   chat addAssistantMessage: nil.
 	json := chat exportAsJson.
 	data := STONJSON fromString: json.
-
-	self assert: (data last at: 'content') equals: ''
+	self assert: data size equals: 1.
+	self assert: (data first at: 'role') equals: 'user'.
+	self assert: (data last at: 'content') equals: ''.
 
 ]
 
@@ -72,25 +73,29 @@ ChatPharoEdgeCaseTest >> testExportAsJsonWithMultilineMessagesPreservesNewlines 
         | json data userText assistantText |
         userText := 'Line1' , String lf , 'Line2'.
         assistantText := 'Answer1' , String lf , 'Answer2'.
+		  chat history addMessage: (ChatPharoHistoryMessage role: 'user' content: userText toolCalls: nil).
+    	  chat history addMessage: (ChatPharoHistoryMessage role: 'assistant' content: assistantText toolCalls: nil).
+    
         chat addUserMessage: userText.
         chat addAssistantMessage: assistantText.
         json := chat exportAsJson.
         data := STONJSON fromString: json.
 
         self assert: (data first at: 'content') equals: userText.
-        self assert: (data last at: 'content') equals: assistantText
+        self assert: (data last at: 'content') equals: assistantText.
 ]
 
 { #category : 'tests' }
 ChatPharoEdgeCaseTest >> testExportAsJsonWithNilUserMessageExportsEmptyString [
         | json data |
+ 		  chat history addMessage: (ChatPharoHistoryMessage role: 'user' content: '' toolCalls: nil).
         chat addUserMessage: nil.
         json := chat exportAsJson.
         data := STONJSON fromString: json.
 
         self assert: data size equals: 1.
         self assert: (data first at: 'role') equals: 'user'.
-        self assert: (data first at: 'content') equals: ''
+        self assert: (data first at: 'content') equals: ''.
 ]
 
 { #category : 'running' }

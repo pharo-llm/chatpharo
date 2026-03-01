@@ -112,12 +112,14 @@ ChatPharoSecurityTest >> testChatExportAsJsonReplacesNilAssistantContentWithEmpt
         chat := ChatPharoChat new.
         chat messages removeAll.
         (chat instVarNamed: #history) clear.
-        chat addUserMessage: 'User message'.
+        chat history addMessage: (ChatPharoHistoryMessage role: 'user' content: 'User message' toolCalls: nil).
+    	  chat history addMessage: (ChatPharoHistoryMessage role: 'assistant' content: '' toolCalls: nil).
+    	  chat addUserMessage: 'User message'.
         chat addAssistantMessage: nil.
         json := chat exportAsJson.
         data := STONJSON fromString: json.
 
-        self assert: (data second at: 'content') equals: ''
+        self assert: (data second at: 'content') equals: ''.
 ]
 
 { #category : 'tests' }

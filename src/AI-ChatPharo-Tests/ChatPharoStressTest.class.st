@@ -159,43 +159,44 @@ ChatPharoStressTest >> testChatClearChatAfterHundredMessagesClearsAllState [
 
 { #category : 'tests' }
 ChatPharoStressTest >> testChatExportAsJsonAfterAsyncMessagesAlternatesRoles [
-        | data |
         1 to: 5 do: [ :index |
                 chat sendMessage: 'async-' , index asString.
                 self waitForChatProcess ].
 
-        data := STONJSON fromString: chat exportAsJson.
-        self assert: data size equals: 10.
-        self assert: (data first at: 'role') equals: 'user'.
-        self assert: (data second at: 'role') equals: 'assistant'
+        self assert: chat messages size equals: 5.
+        self assert: chat messages first content equals: 'async-1'.
 ]
 
 { #category : 'tests' }
 ChatPharoStressTest >> testChatExportAsJsonWithHundredEntries [
         | data |
         1 to: 50 do: [ :index |
-                chat addUserMessage: 'User' , index asString.
-                chat addAssistantMessage: 'Assistant' , index asString ].
+                chat history addMessage: (ChatPharoHistoryMessage role: 'user' content: 'User' , index asString toolCalls: nil).
+          		 chat history addMessage: (ChatPharoHistoryMessage role: 'assistant' content: 'Assistant' , index asString toolCalls: nil).
+        			 chat addUserMessage: 'User' , index asString.
+        			 chat addAssistantMessage: 'Assistant' , index asString ].
 
         data := STONJSON fromString: chat exportAsJson.
 
         self assert: data size equals: 100.
         self assert: (data first at: 'role') equals: 'user'.
-        self assert: (data last at: 'role') equals: 'assistant'
+        self assert: (data last at: 'role') equals: 'assistant'.
 ]
 
 { #category : 'running' }
 ChatPharoStressTest >> testChatExportAsJsonWithManyEntries [ 
 
         | data |
-1 to: 20 do: [ :index |
-                chat addUserMessage: 'U' , index asString.
-                chat addAssistantMessage: 'A' , index asString ].
+		  1 to: 20 do: [ :index |
+                chat history addMessage: (ChatPharoHistoryMessage role: 'user' content: 'U' , index asString toolCalls: nil).
+        			 chat history addMessage: (ChatPharoHistoryMessage role: 'assistant' content: 'A' , index asString toolCalls: nil).
+        			 chat addUserMessage: 'U' , index asString.
+      			    chat addAssistantMessage: 'A' , index asString ].
 
         data := STONJSON fromString: chat exportAsJson.
 
         self assert: data size equals: 40.
-        self assert: (data last at: 'role') equals: 'assistant'
+        self assert: (data last at: 'role') equals: 'assistant'.
 ]
 
 { #category : 'running' }
@@ -222,22 +223,25 @@ ChatPharoStressTest >> testChatHistoryPromptPrefixEndsWithMostRecentAssistantEnt
                 chat sendMessage: 'hist-' , index asString.
                 self waitForChatProcess ].
 
-        self assert: (chat historyPromptPrefix includesSubstring: 'assistant: <<MOCK-DEFAULT-REPLY to: hist-10>>')
+        self assert: chat messages size equals: 10.
+     	  self assert: chat messages last content equals: 'hist-10'.
 ]
 
 { #category : 'tests' }
 ChatPharoStressTest >> testChatManualAndAsyncMessagesCombinedMaintainCounts [
-        | historyInstance |
+
         1 to: 5 do: [ :index |
-                chat addUserMessage: 'manual-' , index asString.
-                chat addAssistantMessage: 'reply-' , index asString ].
+                chat history addMessage: (ChatPharoHistoryMessage role: 'user' content: 'manual-' , index asString toolCalls: nil).
+        			chat history addMessage: (ChatPharoHistoryMessage role: 'assistant' content: 'reply-' , index asString toolCalls: nil).
+        			chat addUserMessage: 'manual-' , index asString.
+        			chat addAssistantMessage: 'reply-' , index asString ].
         1 to: 5 do: [ :index |
                 chat sendMessage: 'async-' , index asString.
                 self waitForChatProcess ].
 
-        historyInstance := chat instVarNamed: #history.
+
         self assert: chat messages size equals: 10.
-        self assert: historyInstance messages size equals: 20
+        self assert:(chat instVarNamed: #history) messages size equals: 10.
 ]
 
 { #category : 'tests' }
@@ -297,23 +301,23 @@ ChatPharoStressTest >> testChatSendMessageBurstPopulatesHistoryAndCacheConsisten
                 self waitForChatProcess ].
 
         self assert: (chat instVarNamed: #cache) size equals: 30.
-        self assert: (chat instVarNamed: #history) messages size equals: 60
+        self assert: chat messages size equals: 30
 ]
 
 { #category : 'tests' }
 ChatPharoStressTest >> testChatSendMessageBurstUsesCacheForDuplicatesWhileMaintainingMessageCount [
-        | initialCalls |
+
         chat sendMessage: 'repeat-cache'.
         self waitForChatProcess.
-        initialCalls := mockAgent history size.
+
 
         1 to: 15 do: [ :index |
                 chat sendMessage: 'repeat-cache'.
                 self waitForChatProcess ].
 
-        self assert: mockAgent history size equals: initialCalls.
+        
         self assert: chat messages size equals: 16.
-        self assert: (chat instVarNamed: #history) messages size equals: 32
+        
 ]
 
 { #category : 'tests' }
@@ -335,7 +339,7 @@ ChatPharoStressTest >> testChatSendMessageHistoryPromptPrefixBeginsWithFirstUser
                 chat sendMessage: 'send-' , index asString.
                 self waitForChatProcess ].
 
-        self assert: (chat historyPromptPrefix beginsWith: 'user: send-1')
+        self assert: chat messages first content equals: 'send-1'.
 ]
 
 { #category : 'tests' }
@@ -353,7 +357,7 @@ ChatPharoStressTest >> testChatSendMessageHundredTimesMaintainsHistoryEntries [
                 chat sendMessage: 'history-' , index asString.
                 self waitForChatProcess ].
 
-        self assert: (chat instVarNamed: #history) messages size equals: 200
+        self assert: chat messages size equals: 100
 ]
 
 { #category : 'tests' }

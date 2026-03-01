@@ -65,7 +65,6 @@ ChatPharoChat >> addAssistantMessage: anAnswer [
 			thinking := agentResponse thinking ] ].
 
 
-	history addAssistant: answerText.
 	multivers := ChatPharoSettings default multivers.
 	label := (multivers notNil and: [ multivers canExecute ])
 		         ifTrue: [ 'Multivers (' , multivers stepsCount asString , ' agents)' ]
@@ -95,13 +94,11 @@ ChatPharoChat >> addUserMessage: text [
 			message := text.
 			content := message content.
 			attachments := message attachments.
-			history addUser: (content ifNil: [ '' ]).
 			self recordUserNameIfPresentIn: content.
 			attachments ifNotNil: [ message attachments: attachments ].
 			messages add: message.
 			^ self ].
 
-	history addUser: text.
 	self recordUserNameIfPresentIn: text.
 	messages add: (ChatPharoMessage new
 			 content: text;

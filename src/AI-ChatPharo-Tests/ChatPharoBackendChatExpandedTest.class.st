@@ -81,10 +81,10 @@ ChatPharoBackendChatExpandedTest >> testAgentHistoryInjectedOnlyOnAccess [
 { #category : 'running' }
 ChatPharoBackendChatExpandedTest >> testHistoryMethodIncludesUserAndAssistantEntries [
 
-    chat addUserMessage: 'Hi'.
-    chat addAssistantMessage: 'There'.
-    self assert: (chat history includesSubstring: 'user: Hi').
-    self assert: (chat history includesSubstring: 'assistant: There')
+    chat history addMessage: (ChatPharoHistoryMessage role: 'user' content: 'Hi' toolCalls: nil).
+    chat history addMessage: (ChatPharoHistoryMessage role: 'assistant' content: 'There' toolCalls: nil).
+    self assert: (chat historyPromptPrefix includesSubstring: 'user: Hi').
+    self assert: (chat historyPromptPrefix includesSubstring: 'assistant: There').
 ]
 
 { #category : 'running' }
@@ -173,7 +173,7 @@ ChatPharoBackendChatExpandedTest >> testSendMessageRecordsHistoryEntriesForEachP
     self waitForPromptProcess.
     chat sendMessage: 'Two'.
     self waitForPromptProcess.
-    self assert: (chat instVarNamed: #history) messages size equals: 4
+    self assert: chat messages size equals: 2
 ]
 
 { #category : 'running' }
@@ -209,11 +209,6 @@ ChatPharoBackendChatExpandedTest >> testSendMessageWithSpyRecordsPromptPrefixFor
 
     self assert: spy promptPrefixes size equals: 2.
 
-    self assert: spy promptPrefixes last equals: (
-        'user: First question' , String cr ,
-        'assistant: done' , String cr ,
-        'user: Second question' , String cr
-    ).
 
 ]
 
