@@ -249,41 +249,46 @@ ChatPharoChat >> importFromJson: aJsonString [
 	"Import a chat from a JSON string. The JSON should be an array of message objects
     with 'role' and 'content' keys, optionally with 'tool_calls' for assistant messages."
 
-	| parsedMessages currentUserContent |
+	| parsedMessages currentUserContent lastRole lastContent |
 	self clearChat.
 	parsedMessages := STONJSON fromString: aJsonString.
 	currentUserContent := nil.
+	lastRole := nil.
+	lastContent := nil.
 
 	parsedMessages do: [ :msgDict |
 			| role content toolCalls historyMsg |
 			role := msgDict at: 'role'.
 			content := msgDict at: 'content' ifAbsent: [ '' ].
-			toolCalls := msgDict at: 'tool_calls' ifAbsent: [ nil ]. "Create tool calls if present"
-			toolCalls ifNotNil: [
-					toolCalls := toolCalls collect: [ :tcDict |
-							             | funcDict |
-							             funcDict := tcDict at: 'function' ifAbsent: [ Dictionary new ].
-							             ChatPharoHistorySaverToolCall
-								             id: (tcDict at: 'id' ifAbsent: [ '' ])
-								             functionName: (funcDict at: 'name' ifAbsent: [ '' ])
-								             arguments: (funcDict at: 'arguments' ifAbsent: [ '' ])
-								             content: nil ] ]. "Add to history"
-			historyMsg := ChatPharoHistoryMessage role: role content: content toolCalls: toolCalls.
-			history addMessage: historyMsg. "Build UI messages - pair user with assistant"
-			role = 'user' ifTrue: [ currentUserContent := content ].
-			role = 'assistant' ifTrue: [
-					messages add: (ChatPharoMessage new
-							 content: (currentUserContent ifNil: [ '' ]);
-							 answer: (content ifNil: [ '' ]);
-							 assistantLabel: 'Assistant';
-							 yourself).
-					currentUserContent := nil ] ].
+			(role = lastRole and: [ content = lastContent ]) ifFalse: [
+					toolCalls := msgDict at: 'tool_calls' ifAbsent: [ nil ]. "Create tool calls if present"
+					toolCalls ifNotNil: [
+							toolCalls := toolCalls collect: [ :tcDict |
+									             | funcDict |
+									             funcDict := tcDict at: 'function' ifAbsent: [ Dictionary new ].
+									             ChatPharoHistorySaverToolCall
+										             id: (tcDict at: 'id' ifAbsent: [ '' ])
+										             functionName: (funcDict at: 'name' ifAbsent: [ '' ])
+										             arguments: (funcDict at: 'arguments' ifAbsent: [ '' ])
+										             content: nil ] ]. "Add to history"
+					historyMsg := ChatPharoHistoryMessage role: role content: content toolCalls: toolCalls.
+					history addMessage: historyMsg. "Build UI messages - pair user with assistant"
+					role = 'user' ifTrue: [ currentUserContent := content ].
+					role = 'assistant' ifTrue: [
+							messages add: (ChatPharoMessage new
+									 content: (currentUserContent ifNil: [ '' ]);
+									 answer: (content ifNil: [ '' ]);
+									 assistantLabel: 'Assistant';
+									 yourself).
+							currentUserContent := nil ].
+					lastRole := role.
+					lastContent := content ] ].
 
 	ChatPharoLogger logBackend: 'Chat imported from JSON' details: (Dictionary new
 			 at: 'chatId' put: self identityHash;
 			 at: 'messagesImported' put: parsedMessages size;
 			 yourself).
-		
+
 	self notifyChatReset
 ]
 
