@@ -73,7 +73,7 @@ ChatPharoSafetyAdvisorBackendTest >> testDefaultsApplyUpdatesSettings [
 	self assert: settings askFeatureEnabled.
 	self assert: settings codeFeatureEnabled.
 	self assert: settings cacheEnabled.
-	self assert: settings feedbackButtonsEnabled.
+	self deny: settings feedbackButtonsEnabled.
 	self assert: settings welcomeMessageEnabled.
 	self assert: settings loggingEnabled.
 	self assert: settings sandboxEnabled.

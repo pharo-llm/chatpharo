@@ -49,7 +49,7 @@ ChatPharoSafetyAdvisor class >> applyDefaultSettingsTo: aSettings [
 	steps add: [ :progressBlock |
 		progressBlock value: 'Configuring caching...'.
 		aSettings cacheEnabled: true.
-		aSettings feedbackButtonsEnabled: true.
+		aSettings feedbackButtonsEnabled: false.
 		10 milliSeconds wait ].
 
 	"Step 7: Configure welcome message and logging"

@@ -102,7 +102,7 @@ ChatPharoSettings class >> loadOrNew [
 					  settings browserToolsEnabled: (ChatPharoBrowserEnvironment new tools collect: [ :t | t name ]) asOrderedCollection ].
 				  settings maximumIterations.
 				  settings cacheEnabled ifNil: [ settings cacheEnabled: true ].
-				  settings feedbackButtonsEnabled ifNil: [ settings feedbackButtonsEnabled: true ].
+				  settings feedbackButtonsEnabled ifNil: [ settings feedbackButtonsEnabled: false ].
 				  settings welcomeMessageEnabled ifNil: [ settings welcomeMessageEnabled: false ].
 				  settings loggingEnabled.
 				  settings askFeatureEnabled ifNil: [ settings askFeatureEnabled: true ].
@@ -624,7 +624,7 @@ ChatPharoSettings >> externalApiWarningDismissed: aBoolean [
 
 { #category : 'accessing' }
 ChatPharoSettings >> feedbackButtonsEnabled [
-	^ feedbackButtonsEnabled ifNil: [ true ]
+	^ feedbackButtonsEnabled ifNil: [ false ]
 ]
 
 { #category : 'accessing' }
@@ -647,7 +647,7 @@ ChatPharoSettings >> initialize [
 	browserExtensionEnabled := false.
 	browserAutoTabEnabled := true.
 	cacheEnabled := true.
-	feedbackButtonsEnabled := true.
+	feedbackButtonsEnabled := false.
 	welcomeMessageEnabled := false.
 	loggingEnabled := true.
 	askFeatureEnabled := true.

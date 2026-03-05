@@ -192,9 +192,9 @@ ChatPharoSettingsBackendTest >> testEnableBrowserToolDoesNotDuplicateEntries [
 ]
 
 { #category : 'running' }
-ChatPharoSettingsBackendTest >> testFeedbackButtonsEnabledDefaultsToTrue [
+ChatPharoSettingsBackendTest >> testFeedbackButtonsEnabledDefaultsToFalse [
 
-    self assert: settings feedbackButtonsEnabled.
+    self deny: settings feedbackButtonsEnabled.
 ]
 
 { #category : 'running' }
