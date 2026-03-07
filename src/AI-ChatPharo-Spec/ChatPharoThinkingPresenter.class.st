@@ -240,11 +240,12 @@ ChatPharoThinkingPresenter >> thinkingContent: aString [
 ChatPharoThinkingPresenter >> updateElapsedThinkingTime [
 	"Capture how long thinking took so we can show it when finished"
 
+	animationProcess ifNil: [ ^ self ].
 	thinkingStartedAt ifNil: [
-		thinkingElapsedSeconds := 0.
-		^ self ].
+			thinkingElapsedSeconds := 0.
+			^ self ].
 
-	thinkingElapsedSeconds := (((DateAndTime now - thinkingStartedAt) asSeconds rounded) max: 0)
+	thinkingElapsedSeconds := (DateAndTime now - thinkingStartedAt) asSeconds rounded max: 0
 ]
 
 { #category : 'initialization' }

@@ -206,12 +206,12 @@ ChatPharoChatPresenter >> hideError [
 ChatPharoChatPresenter >> hideThinking [
 	"Hide the thinking indicator and stop animation"
 
-thinkingPresenter phase: #finished.
 	thinkingPresenter stopAnimation.
+	thinkingPresenter phase: #finished.
+	
 	[
 		(Delay forMilliseconds: 600) wait.
-		thinkingPresenter isFinished ifTrue: [
-			messagesLayout remove: thinkingPresenter ifAbsent: [ "not shown" ] ] ] fork
+		thinkingPresenter isFinished ifTrue: [ messagesLayout remove: thinkingPresenter ifAbsent: [ "not shown" ] ] ] fork
 ]
 
 { #category : 'initialization' }
