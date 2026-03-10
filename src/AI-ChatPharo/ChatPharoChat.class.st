@@ -29,7 +29,9 @@ Class {
 		'onToolExecution',
 		'cache',
 		'onErrorReceived',
-		'onNewChatRequested'
+		'onNewChatRequested',
+		'onTitleGenerated',
+		'titleGenerated'
 	],
 	#category : 'AI-ChatPharo',
 	#package : 'AI-ChatPharo'
@@ -229,6 +231,42 @@ ChatPharoChat >> extractNameFrom: text startingAfter: startIndex [
 	^ candidate
 ]
 
+{ #category : 'initialization' }
+ChatPharoChat >> generateTitleFrom: userText [
+
+	| titleAgent prompt result cleanTitle |
+	titleAgent := self agent copyForChat.
+	prompt := 'Give a short title of 3 to 5 words for a chat conversation that starts with this message. Each word must be separated by a space. Use title case. Reply with the title only, no punctuation, no quotes, no extra explanation: '
+	          , userText.
+	[
+		[
+			result := titleAgent getResponseForPrompt: prompt.
+			cleanTitle := result asString trimBoth.
+			cleanTitle := cleanTitle copyReplaceAll: '''' with: ''.
+			cleanTitle := cleanTitle copyReplaceAll: String cr with: ' '.
+			cleanTitle := cleanTitle copyReplaceAll: String lf with: ' '.
+			cleanTitle size > 40 ifTrue: [ cleanTitle := (cleanTitle copyFrom: 1 to: 40) trimBoth ].
+			(cleanTitle includesSubstring: ' ') ifFalse: [
+					| spaced |
+					spaced := String streamContents: [ :s |
+							          cleanTitle doWithIndex: [ :char :i |
+									          (i > 1 and: [ char isUppercase ]) ifTrue: [ s nextPut: $  ].
+									          s nextPut: char ] ].
+					cleanTitle := spaced ].
+			cleanTitle ifEmpty: [ cleanTitle := 'Chat' ].
+			onTitleGenerated ifNotNil: [ :blk | blk value: cleanTitle ].
+			ChatPharoLogger logBackend: 'Chat title generated' details: (Dictionary new
+					 at: 'chatId' put: self identityHash;
+					 at: 'title' put: cleanTitle;
+					 yourself) ]
+			on: Error
+			do: [ :ex |
+					ChatPharoLogger logBackend: 'Chat title generation failed' details: (Dictionary new
+							 at: 'chatId' put: self identityHash;
+							 at: 'error' put: ex messageText;
+							 yourself) ] ] fork
+]
+
 { #category : 'running' }
 ChatPharoChat >> history [
     ^ history asPromptPrefix
@@ -301,6 +339,7 @@ ChatPharoChat >> initialize [
 	onToolExecution := nil.
 	onChatReset := nil.
 	cache := Dictionary new.
+	titleGenerated := false.
 	ChatPharoSettings default welcomeMessageEnabled ifTrue: [ self addWelcomeMessage ]
 ]
 
@@ -474,7 +513,7 @@ ChatPharoChat >> sendMessage: aText [
 ChatPharoChat >> sendMessage: aText withAttachments: attachmentCollection [
 
 	| answer multivers promptWithMemory textWithAttachments |
-	self addUserMessage: aText withAttachments: attachmentCollection. 
+	self addUserMessage: aText withAttachments: attachmentCollection.
 	textWithAttachments := aText.
 	attachmentCollection ifNotEmpty: [
 			textWithAttachments := String streamContents: [ :stream |
@@ -491,10 +530,10 @@ ChatPharoChat >> sendMessage: aText withAttachments: attachmentCollection [
 							                       stream nextPutAll: fileRef size asString.
 							                       stream nextPutAll: ' bytes)'.
 							                       stream cr.
-							                      (fileRef mimeTypes anySatisfy: [ :mime |
-								                        (mime respondsTo: #main)
-									                        ifTrue: [ mime main = 'text' ]
-									                        ifFalse: [ mime asString beginsWith: 'text/' ] ]) ifTrue: [
+							                       (fileRef mimeTypes anySatisfy: [ :mime |
+									                        (mime respondsTo: #main)
+										                        ifTrue: [ mime main = 'text' ]
+										                        ifFalse: [ mime asString beginsWith: 'text/' ] ]) ifTrue: [
 									                       stream nextPutAll: '  Content: '.
 									                       stream cr.
 									                       stream nextPutAll: fileRef contents.
@@ -504,23 +543,28 @@ ChatPharoChat >> sendMessage: aText withAttachments: attachmentCollection [
 			answer := cache at: textWithAttachments.
 			self addAssistantMessage: answer.
 			onAnswerReceived ifNotNil: [ :blk | blk value: messages last ].
+			(titleGenerated not and: [ onTitleGenerated notNil ]) ifTrue: [
+					titleGenerated := true.
+					self generateTitleFrom: aText ].
 			^ self ].
 	multivers := ChatPharoSettings default multivers.
-	(multivers notNil and: [ multivers canExecute ]) ifTrue: [ ^ self sendMessageViaMultivers: textWithAttachments ]. 
+	(multivers notNil and: [ multivers canExecute ]) ifTrue: [ ^ self sendMessageViaMultivers: textWithAttachments ].
 	promptProcess := [
 		                 [
 			                 | backend |
 			                 backend := self agent.
 			                 backend onToolExecution: [ :toolName | self triggerToolExecution: toolName ].
 			                 promptWithMemory := self buildPromptPrefixWithMemoryFor: textWithAttachments.
-
 			                 backend promptPrefix: promptWithMemory.
 			                 answer := backend getResponseForPrompt: textWithAttachments.
 			                 cache at: textWithAttachments put: answer.
 			                 self addAssistantMessage: answer.
-			                 onAnswerReceived ifNotNil: [ :blk | blk value: messages last ] ]
+			                 onAnswerReceived ifNotNil: [ :blk | blk value: messages last ].
+			                 (titleGenerated not and: [ onTitleGenerated notNil ]) ifTrue: [
+					                 titleGenerated := true.
+					                 self generateTitleFrom: aText ] ]
 			                 on: Error
-			                 do: [ :ex |
+			                 do: [ :ex | 
 					                 ChatPharoLogger logBackend: 'Error during message send' details: (Dictionary new
 							                  at: 'chatId' put: self identityHash;
 							                  at: 'error' put: ex messageText;
@@ -638,6 +682,12 @@ ChatPharoChat >> whenErrorReceivedDo: aBlock [
 ChatPharoChat >> whenNewChatRequestedDo: aBlock [ 
 
 	onNewChatRequested := aBlock
+]
+
+{ #category : 'enumerating' }
+ChatPharoChat >> whenTitleGeneratedDo: aBlock [
+
+	onTitleGenerated := aBlock
 ]
 
 { #category : 'running' }

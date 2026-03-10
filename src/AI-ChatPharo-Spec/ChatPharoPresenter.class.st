@@ -21,22 +21,29 @@ Class {
 
 { #category : 'adding' }
 ChatPharoPresenter >> addNewChat [
-	| newPage chatName |
+
+	| newPage chatName newChat |
 	chatCounter := chatCounter + 1.
 	chatName := 'Chat ' , chatCounter asString.
 	model ifNotNil: [ model newChat ].
-	newPage := SpNotebookPage 
-		title: chatName 
-		icon: (self iconNamed: #announcement) 
-		provider: [ model ifNotNil: [ model chats last presenter ] ifNil: [ nil ]  ].
+	newChat := model ifNotNil: [ model chats last ].
+	newPage := SpNotebookPage
+		           title: chatName
+		           icon: (self iconNamed: #announcement)
+		           provider: [ model ifNotNil: [ model chats last presenter ] ifNil: [ nil ] ].
+		
+	newChat ifNotNil: [ 
+		newChat whenTitleGeneratedDo: [ :title |
+			UIManager default defer: [ 
+				newPage title: title.
+				newPage notifyPropertyChanged: #title ] ] ].
 	notebook addPage: newPage.
 	notebook selectPage: newPage.
-	ChatPharoLogger logFrontend: 'UI added new chat tab'
-		details: (Dictionary new
-			at: 'title' put: chatName;
-			at: 'totalTabs' put: notebook pages size;
-			at: 'chatCounter' put: chatCounter;
-			yourself)
+	ChatPharoLogger logFrontend: 'UI added new chat tab' details: (Dictionary new
+			 at: 'title' put: chatName;
+			 at: 'totalTabs' put: notebook pages size;
+			 at: 'chatCounter' put: chatCounter;
+			 yourself)
 ]
 
 { #category : 'layout' }
