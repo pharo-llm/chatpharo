@@ -64,7 +64,8 @@ Class {
 		'memoryAutoSummarize',
 		'mcpEnabled',
 		'mcpRegistry',
-		'externalApiWarningDismissed'
+		'externalApiWarningDismissed',
+		'dynamicChatNamingEnabled'
 	],
 	#classInstVars : [
 		'Default'
@@ -548,6 +549,22 @@ ChatPharoSettings >> disableSkill: skillName [
 			at: 'skill' put: skillName;
 			at: 'remainingSkills' put: skillsEnabled asArray printString;
 			yourself)
+]
+
+{ #category : 'accessing' }
+ChatPharoSettings >> dynamicChatNamingEnabled [
+	^ dynamicChatNamingEnabled ifNil: [ false ]
+]
+
+{ #category : 'accessing' }
+ChatPharoSettings >> dynamicChatNamingEnabled: aBoolean [
+
+	dynamicChatNamingEnabled := aBoolean.
+	self class setDefault: self.
+	self class saveDefault.
+	ChatPharoLogger logFrontend: 'Dynamic chat naming enabled' details: (Dictionary new
+			 at: 'enabled' put: aBoolean;
+			 yourself)
 ]
 
 { #category : 'as yet unclassified' }
