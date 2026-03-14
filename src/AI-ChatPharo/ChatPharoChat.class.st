@@ -235,6 +235,8 @@ ChatPharoChat >> extractNameFrom: text startingAfter: startIndex [
 ChatPharoChat >> generateTitleFrom: userText [
 
 	| titleAgent prompt result cleanTitle |
+	
+	ChatPharoSettings default dynamicChatNamingEnabled ifFalse: [ ^ self ].
 	titleAgent := self agent copyForChat.
 	prompt := 'Give a short title of 3 to 5 words for a chat conversation that starts with this message. Each word must be separated by a space. Use title case. Reply with the title only, no punctuation, no quotes, no extra explanation: '
 	          , userText.

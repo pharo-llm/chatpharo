@@ -39,7 +39,8 @@ Class {
 		'tokenBudgetInput',
 		'timeBudgetInput',
 		'requestTimeoutInput',
-		'messageLimitInput'
+		'messageLimitInput',
+		'dynamicChatNamingCheckBox'
 	],
 	#category : 'AI-ChatPharo-Spec-Core',
 	#package : 'AI-ChatPharo-Spec',
@@ -121,8 +122,8 @@ ChatPharoSettingsPresenter >> connectPresenters [
 	browserExtensionCheckBox whenChangedDo: [ :presenter |
 			model browserExtensionEnabled: presenter.
 			self updateBrowserExtensionTab ].
-		
-		icebergExtensionCheckBox whenChangedDo: [ :presenter |
+
+	icebergExtensionCheckBox whenChangedDo: [ :presenter |
 			model icebergExtensionEnabled: presenter.
 			self updateIcebergExtensionTab ].
 
@@ -154,6 +155,11 @@ ChatPharoSettingsPresenter >> connectPresenters [
 		                          addCheckboxLabeled: 'Show Welcome Message'
 		                          value: [ ChatPharoSettings default welcomeMessageEnabled ]
 		                          changeAction: [ :val | ChatPharoSettings default welcomeMessageEnabled: val ].
+		
+	dynamicChatNamingCheckBox := self
+		                             addCheckboxLabeled: 'Enable Dynamic Chat Naming'
+		                             value: [ ChatPharoSettings default dynamicChatNamingEnabled ]
+		                             changeAction: [ :val | ChatPharoSettings default dynamicChatNamingEnabled: val ].
 
 	ethicsDirectorCheckBox whenChangedDo: [ :enabled | model ethicsDirectorEnabled: enabled ].
 
@@ -451,63 +457,61 @@ ChatPharoSettingsPresenter >> initializeWindow: aWindowPresenter [
 
 { #category : 'initialization' }
 ChatPharoSettingsPresenter >> newChatTab [
-	| agentSection toolsSection loggingSection uiSection |
 
+	| agentSection toolsSection loggingSection uiSection |
 	"Agent Settings Section"
 	agentSection := SpBoxLayout newTopToBottom
-		spacing: 6;
-		add: (self newLabel label: '— Agent Settings —') expand: false;
-		add: (SpBoxLayout newHorizontal
-			spacing: 8;
-			add: (self newLabel label: 'System prompt:') expand: false;
-			add: systemPromptInput expand: true;
-			yourself) expand: false;
-		add: (SpBoxLayout newHorizontal
-			spacing: 8;
-			add: (self newLabel label: 'Max iterations:') expand: false;
-			add: maxIterationsInput width: 80;
-			yourself) expand: false;
-		yourself.
-
-	"Tools & Features Section"
+		                spacing: 6;
+		                add: (self newLabel label: '— Agent Settings —') expand: false;
+		                add: (SpBoxLayout newHorizontal
+				                 spacing: 8;
+				                 add: (self newLabel label: 'System prompt:') expand: false;
+				                 add: systemPromptInput expand: true;
+				                 yourself)
+		                expand: false;
+		                add: (SpBoxLayout newHorizontal
+				                 spacing: 8;
+				                 add: (self newLabel label: 'Max iterations:') expand: false;
+				                 add: maxIterationsInput width: 80;
+				                 yourself)
+		                expand: false;
+		                yourself. "Tools & Features Section"
 	toolsSection := SpBoxLayout newTopToBottom
-		spacing: 6;
-		add: (self newLabel label: '— Tools & Features —') expand: false;
-		add: playgroundToolCheckBox expand: false;
-		add: askFeatureCheckBox expand: false;
-		add: codeFeatureCheckBox expand: false;
-		yourself.
-
-	"Logging & Cache Section"
+		                spacing: 6;
+		                add: (self newLabel label: '— Tools & Features —') expand: false;
+		                add: playgroundToolCheckBox expand: false;
+		                add: askFeatureCheckBox expand: false;
+		                add: codeFeatureCheckBox expand: false;
+		                yourself. "Logging & Cache Section"
 	loggingSection := SpBoxLayout newTopToBottom
-		spacing: 6;
-		add: (self newLabel label: '— Logging & Cache —') expand: false;
-		add: cacheCheckBox expand: false;
-		add: (SpBoxLayout newHorizontal
-			spacing: 8;
-			add: loggingCheckBox expand: false;
-			add: openLogsButton expand: false;
-			yourself) expand: false;
-		yourself.
-
-	"UI Preferences Section"
+		                  spacing: 6;
+		                  add: (self newLabel label: '— Logging & Cache —') expand: false;
+		                  add: cacheCheckBox expand: false;
+		                  add: (SpBoxLayout newHorizontal
+				                   spacing: 8;
+				                   add: loggingCheckBox expand: false;
+				                   add: openLogsButton expand: false;
+				                   yourself)
+		                  expand: false;
+		                  yourself. "UI Preferences Section"
 	uiSection := SpBoxLayout newTopToBottom
-		spacing: 6;
-		add: (self newLabel label: '— UI Preferences —') expand: false;
-		add: feedbackCheckBox expand: false;
-		add: welcomeMessageCheckBox expand: false;
-		yourself.
+		             spacing: 6;
+		             add: (self newLabel label: '— UI Preferences —') expand: false;
+		             add: feedbackCheckBox expand: false;
+		             add: welcomeMessageCheckBox expand: false;
+						 add: dynamicChatNamingCheckBox expand: false;
+		             yourself.
 
 	^ SpPresenter new
-		layout: (SpBoxLayout newTopToBottom
-			spacing: 16;
-			borderWidth: 10;
-			add: agentSection expand: false;
-			add: toolsSection expand: false;
-			add: loggingSection expand: false;
-			add: uiSection expand: false;
-			yourself);
-		yourself
+		  layout: (SpBoxLayout newTopToBottom
+				   spacing: 16;
+				   borderWidth: 10;
+				   add: agentSection expand: false;
+				   add: toolsSection expand: false;
+				   add: loggingSection expand: false;
+				   add: uiSection expand: false;
+				   yourself);
+		  yourself
 ]
 
 { #category : 'initialization' }
