@@ -325,39 +325,25 @@ ChatPharoOllamaAgent >> supportsToolCalling [
 	Falls back to checking known model families that support tools."
 
 	| details family modelNameLower toolSupportingFamilies |
-	model ifEmpty: [ ^ false ].
-
-	"Try to get model details from API"
+	model ifEmpty: [ ^ false ]. "Try to get model details from API"
 	details := self modelDetailsForToolSupport.
-	details ifNil: [ ^ false ].
-
-	"Check if details contains explicit capabilities (newer Ollama versions)"
+	details ifNil: [ ^ false ]. "Check if details contains explicit capabilities (newer Ollama versions)"
 	(details includesKey: 'capabilities') ifTrue: [
-		| capabilities |
-		capabilities := details at: 'capabilities'.
-		(capabilities isCollection and: [ capabilities includes: 'tools' ])
-			ifTrue: [ ^ true ] ].
-
-	"Fall back to checking model family from details"
+			| capabilities |
+			capabilities := details at: 'capabilities'.
+			(capabilities isCollection and: [ capabilities includes: 'tools' ]) ifTrue: [ ^ true ] ]. "Fall back to checking model family from details"
 	(details includesKey: 'details') ifTrue: [
-		| modelDetails |
-		modelDetails := details at: 'details'.
-		(modelDetails includesKey: 'family') ifTrue: [
-			family := (modelDetails at: 'family') asLowercase.
-			toolSupportingFamilies := #( 'llama' 'qwen2' 'qwen' 'mistral' 'mixtral'
-			                             'command-r' 'gemma2' 'phi3' 'hermes' 'firefunction' ).
-			(toolSupportingFamilies anySatisfy: [ :f | family includesSubstring: f ])
-				ifTrue: [ ^ true ] ] ].
-
-	"Last resort: check model name pattern for known tool-capable models"
+			| modelDetails |
+			modelDetails := details at: 'details'.
+			(modelDetails includesKey: 'family') ifTrue: [
+					family := (modelDetails at: 'family') asLowercase.
+					toolSupportingFamilies := #( 'qwen2' 'qwen' 'mistral' 'mixtral' 'command-r' 'hermes' 'firefunction' ).
+					(toolSupportingFamilies anySatisfy: [ :f | family includesSubstring: f ]) ifTrue: [ ^ true ]. "llama family supports tools, but codellama does not"
+					(family includesSubstring: 'llama') ifTrue: [ (family includesSubstring: 'codellama') ifFalse: [ ^ true ] ] ] ]. "Last resort: check model name pattern for known tool-capable models"
 	modelNameLower := model asLowercase.
-	(#( 'llama3.1' 'llama3.2' 'llama3.3' 'qwen2' 'qwen2.5' 'mistral-nemo'
-	    'mistral-small' 'mistral-large' 'mixtral' 'command-r' 'gemma2'
-	    'phi3' 'hermes3' 'firefunction' 'smollm2' 'granite3' 'athene' 'aya-expanse' )
-		 anySatisfy: [ :pattern | modelNameLower includesSubstring: pattern ])
-		ifTrue: [ ^ true ].
-
-	"Default: assume no tool support for unknown models"
+	(#( 'llama3.1' 'llama3.2' 'llama3.3' 'qwen2' 'qwen2.5' 'mistral-nemo' 'mistral-small' 'mistral-large' 'mixtral' 'command-r'
+	    'hermes3' 'firefunction' 'smollm2' 'athene' 'aya-expanse' ) anySatisfy: [ :pattern |
+		 modelNameLower includesSubstring: pattern ]) ifTrue: [ ^ true ]. "Default: assume no tool support for unknown models"
 	^ false
 ]
 
