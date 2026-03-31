@@ -31,9 +31,9 @@ IceTipCommentPanel >> initializePresenters [
 				self runCriticsOnCommit: aBoolean ];
 			yourself);
 		add: (self newToolbarButton
-			icon: (self iconNamed: #smallQuestion);
-			label: 'Dump';
-			help: 'A very dumb button';
+			icon: ChatPharoIcons chatPharoIcon;
+			label: 'ChatPharo';
+			help: 'ask ChatPharo to generate';
 			action: [ self chatpharo ];
 			yourself);
 		yourself.
