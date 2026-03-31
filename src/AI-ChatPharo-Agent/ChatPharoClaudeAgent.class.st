@@ -198,7 +198,7 @@ ChatPharoClaudeAgent >> testConnection [
 		apiKey ifNotEmpty: [ client headerAt: 'x-api-key' put: apiKey ].
 		client headerAt: 'anthropic-version' put: '2023-06-01'.
 		client get.
-		true ]
+		client response isSuccess ]
 		on: ZnHttpUnsuccessful , NetworkError
 		do: [ false ]
 ]

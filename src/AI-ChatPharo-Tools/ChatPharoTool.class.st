@@ -76,16 +76,17 @@ ChatPharoTool class >> claudeWithAPIKey: apiKey system: system [
 { #category : 'instance creation' }
 ChatPharoTool class >> claudeWithAPIKey: apiKey system: system tools: tools [
 
-	| tool |
-	tool := self
-		baseURL: (ZnUrl fromString: 'https://api.anthropic.com/v1')
-		apiKey: apiKey
-		system: system
-		tools: tools.
+| tool |
+	tool := self basicNew.
 	tool extraHeaders: (Dictionary new
 		at: 'x-api-key' put: apiKey;
 		at: 'anthropic-version' put: '2023-06-01';
 		yourself).
+	tool
+		initializeWithBaseURL: (ZnUrl fromString: 'https://api.anthropic.com/v1')
+		apiKey: apiKey
+		system: system
+		tools: tools.
 	^ tool
 ]
 
@@ -130,14 +131,14 @@ ChatPharoTool class >> lmStudioWithHost: host port: port system: system tools: t
 	^ self baseURL: (ZnUrl fromString: url) system: system tools: tools
 ]
 
-{ #category : 'as yet unclassified' }
+{ #category : 'instance creation' }
 ChatPharoTool class >> mistralWithAPIKey: apiKey system: system [ 
 
 
         ^ self mistralWithAPIKey: apiKey system: system tools: nil
 ]
 
-{ #category : 'as yet unclassified' }
+{ #category : 'instance creation' }
 ChatPharoTool class >> mistralWithAPIKey: apiKey system: system tools: tools [ 
 
 
