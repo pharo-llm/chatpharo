@@ -17,6 +17,21 @@ ChatPharoMessageTest >> testAccessors [
 ]
 
 { #category : 'tests' }
+ChatPharoMessageTest >> testAddAndRemoveAttachment [
+
+	| msg attachment |
+	msg := ChatPharoMessage new.
+	attachment := FileLocator imageDirectory / 'attachment.txt'.
+
+	msg addAttachment: attachment.
+	self assert: msg attachments size equals: 1.
+	self assert: msg attachments first equals: attachment.
+
+	msg removeAttachment: attachment.
+	self assert: msg attachments isEmpty
+]
+
+{ #category : 'tests' }
 ChatPharoMessageTest >> testAssistantLabelAccessors [ 
 
         | msg |
@@ -62,6 +77,32 @@ ChatPharoMessageTest >> testPresenterIsLazyInitialized [
 	presenter1 := msg presenter.
 	presenter := msg presenter.
 	self assert: presenter1 == presenter.
+]
+
+{ #category : 'tests' }
+ChatPharoMessageTest >> testRemoveMissingAttachmentDoesNothing [
+
+	| msg |
+	msg := ChatPharoMessage new.
+
+	self
+		shouldnt: [ msg removeAttachment: (FileLocator imageDirectory / 'missing.txt') ]
+		raise: Error.
+
+	self assert: msg attachments isEmpty
+]
+
+{ #category : 'tests' }
+ChatPharoMessageTest >> testResetPresenterCreatesFreshPresenter [
+
+	| msg firstPresenter secondPresenter |
+	msg := ChatPharoMessage new.
+	firstPresenter := msg presenter.
+
+	msg resetPresenter.
+	secondPresenter := msg presenter.
+
+	self deny: firstPresenter == secondPresenter
 ]
 
 { #category : 'tests' }
@@ -130,4 +171,20 @@ ChatPharoMessageTest >> testSuggestionToggle [
 	self assert: msg suggestionAccepted.
 	self deny: msg suggestionRejected ]
 		ensure: [ ChatPharoFeedbackSubmitter enabled: originalEnabled ]
+]
+
+{ #category : 'tests' }
+ChatPharoMessageTest >> testThinkingAccessor [
+
+	| msg |
+	msg := ChatPharoMessage new.
+	msg thinking: 'internal reasoning'.
+
+	self assert: msg thinking equals: 'internal reasoning'
+]
+
+{ #category : 'tests' }
+ChatPharoMessageTest >> testThinkingDefaultsToEmptyString [
+
+	self assert: ChatPharoMessage new thinking equals: String empty
 ]
