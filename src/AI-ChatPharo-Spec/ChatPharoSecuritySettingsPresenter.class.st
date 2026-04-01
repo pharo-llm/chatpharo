@@ -1,3 +1,12 @@
+"
+Presenter for configuring ChatPharo sandbox security settings.
+
+Provides controls to:
+* Enable/disable sandbox mode.
+* Configure sandbox timeout.
+* Toggle file system, network, and system access restrictions.
+* Run a quick sandbox self-test and display status/results.
+"
 Class {
 	#name : 'ChatPharoSecuritySettingsPresenter',
 	#superclass : 'SpPresenter',
