@@ -159,6 +159,16 @@ ChatPharoTemporalToolRegistry >> normalizeLineEndingsToCr: aString [
 	^ normalized copyReplaceAll: String lf with: String cr
 ]
 
+{ #category : 'registration' }
+ChatPharoTemporalToolRegistry >> registerClient: aChatPharoClient [
+	"Register a pre-built ChatPharoClient as a temporal tool.
+	 Used by the debugger environment to inject debugger-specific tools."
+
+	(self hasToolNamed: aChatPharoClient name) ifTrue: [ ^ self ].
+	temporalTools at: aChatPharoClient name put: aChatPharoClient.
+	creationTimestamps at: aChatPharoClient name put: DateAndTime now
+]
+
 { #category : 'as yet unclassified' }
 ChatPharoTemporalToolRegistry >> size [
 	"Return the number of registered temporal tools."

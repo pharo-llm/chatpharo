@@ -21,6 +21,13 @@ ChatPharoCommandExecutionStub class >> askAboutMethod: aMethod [
 ]
 
 { #category : 'tests' }
+ChatPharoCommandExecutionStub class >> codeAndFixFromDebugger: aDebugger [
+
+	"Stub for intelligent debug command tests"
+	LastAskedMethod := aDebugger
+]
+
+{ #category : 'tests' }
 ChatPharoCommandExecutionStub class >> codeForMethod: aMethod [
 
 	LastCodedMethod := aMethod

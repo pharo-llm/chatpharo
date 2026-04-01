@@ -2,16 +2,17 @@ Extension { #name : 'StDebugger' }
 
 { #category : '*AI-ChatPharo-Env' }
 StDebugger class >> chatPharoBrowseCommandWith: aPresenter forRootGroup: aCmCommandsGroup [
-<extensionCommands>
-	| command stackGroup decoratedGroup |
 
-	command := StAskChatPharoFromDebuggerCommand forSpecContext: aPresenter.
+	<extensionCommands>
+	| command stackGroup decoratedGroup intelligentCommand |
+	intelligentCommand := StIntelligentDebugChatPharoCommand forSpecContext: aPresenter.
 	stackGroup := aCmCommandsGroup / StDebuggerStackCommandTreeBuilder groupName.
 	decoratedGroup := stackGroup decoratedGroup.
-
+	decoratedGroup register: intelligentCommand.
+	decoratedGroup entries remove: intelligentCommand ifAbsent: [ ].
+	decoratedGroup entries addFirst: intelligentCommand.
+	command := StAskChatPharoFromDebuggerCommand forSpecContext: aPresenter.
 	decoratedGroup register: command.
-
-	"Force it to be the first visible item"
 	decoratedGroup entries remove: command ifAbsent: [ ].
-	decoratedGroup entries addFirst: command
+	decoratedGroup entries add: command afterIndex: 1
 ]
