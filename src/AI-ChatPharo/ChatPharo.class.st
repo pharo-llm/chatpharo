@@ -75,6 +75,50 @@ ChatPharo class >> askAboutMethod: aMethod [
                                         ifTrue: [ agent packageName: packageName ] ] ]
 ]
 
+{ #category : 'tests' }
+ChatPharo class >> askAboutMethod: aMethod withSystemPrompt: aSystemPrompt [
+
+	| methodClass source className selector packageName prompt details |
+	methodClass := (aMethod respondsTo: #methodClass)
+		               ifTrue: [ aMethod methodClass ]
+		               ifFalse: [ nil ].
+	source := (aMethod respondsTo: #sourceCode)
+		          ifTrue: [ aMethod sourceCode ]
+		          ifFalse: [ '' ].
+	className := methodClass
+		             ifNotNil: [ methodClass name asString ]
+		             ifNil: [ nil ].
+	selector := (aMethod respondsTo: #selector)
+		            ifTrue: [ aMethod selector asString ]
+		            ifFalse: [ nil ].
+	packageName := (methodClass respondsTo: #package)
+		               ifTrue: [
+			               | package |
+			               package := methodClass package.
+			               package ifNotNil: [ package name asString ] ]
+		               ifFalse: [ nil ].
+	prompt := self
+		          promptForMethodExplanationSource: source
+		          className: className
+		          selector: selector.
+	details := Dictionary new.
+	className ifNotNil: [ details at: 'class' put: className ].
+	selector ifNotNil: [ details at: 'selector' put: selector ].
+	packageName ifNotNil: [ details at: 'package' put: packageName ].
+	^ self
+		  performQuickActionNamed: 'Quick ask'
+		  prompt: prompt
+		  additionalDetails: details
+		  customizeAgent: [ :agent |
+			  packageName ifNotNil: [
+				  (agent respondsTo: #packageName:)
+					  ifTrue: [ agent packageName: packageName ] ].
+			  (aSystemPrompt isNotNil and: [ aSystemPrompt notEmpty ])
+				  ifTrue: [
+					  (agent respondsTo: #systemPrompt:)
+						  ifTrue: [ agent systemPrompt: aSystemPrompt ] ] ]
+]
+
 { #category : 'context' }
 ChatPharo class >> code: sourceText [
 

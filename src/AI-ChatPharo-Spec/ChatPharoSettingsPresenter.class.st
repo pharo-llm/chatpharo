@@ -14,6 +14,8 @@ Class {
 		'systemPromptInput',
 		'browserExtensionCheckBox',
 		'browserExtensionPage',
+		'debuggerExtensionCheckBox',
+		'debuggerExtensionPage',
 		'icebergExtensionCheckBox',
 		'icebergExtensionPage',
 		'maxIterationsInput',
@@ -123,6 +125,10 @@ ChatPharoSettingsPresenter >> connectPresenters [
 			model browserExtensionEnabled: presenter.
 			self updateBrowserExtensionTab ].
 
+debuggerExtensionCheckBox whenChangedDo: [ :presenter |
+			model debuggerExtensionEnabled: presenter.
+			self updateDebuggerExtensionTab ].
+		
 	icebergExtensionCheckBox whenChangedDo: [ :presenter |
 			model icebergExtensionEnabled: presenter.
 			self updateIcebergExtensionTab ].
@@ -155,7 +161,7 @@ ChatPharoSettingsPresenter >> connectPresenters [
 		                          addCheckboxLabeled: 'Show Welcome Message'
 		                          value: [ ChatPharoSettings default welcomeMessageEnabled ]
 		                          changeAction: [ :val | ChatPharoSettings default welcomeMessageEnabled: val ].
-		
+
 	dynamicChatNamingCheckBox := self
 		                             addCheckboxLabeled: 'Enable Dynamic Chat Naming'
 		                             value: [ ChatPharoSettings default dynamicChatNamingEnabled ]
@@ -247,6 +253,18 @@ ChatPharoSettingsPresenter >> ensureBrowserExtensionTab [
 				                        provider: [
 				                       ChatPharoBrowserExtensionSettingsPresenter on: model  ].
 			notebook addPage: browserExtensionPage ]
+]
+
+{ #category : 'initialization' }
+ChatPharoSettingsPresenter >> ensureDebuggerExtensionTab [
+
+		debuggerExtensionPage ifNil: [
+		debuggerExtensionPage := SpNotebookPage
+				title: 'Debugger Tab'
+				icon: (self iconNamed: #smallConfiguration)
+				provider: [ self newDebuggerTab ].
+		notebook addPage: debuggerExtensionPage ].
+	notebook selectPage: debuggerExtensionPage
 ]
 
 { #category : 'initialization' }
@@ -356,14 +374,20 @@ ChatPharoSettingsPresenter >> initializePresenters [
 		                      yourself.
 
 	browserExtensionCheckBox := self newCheckBox
-			                    label: 'Enable browser tab';
-			                    state: model browserExtensionEnabled;
-			                    yourself.
+		                            label: 'Enable browser tab';
+		                            state: model browserExtensionEnabled;
+		                            yourself.
+
+	debuggerExtensionCheckBox := self newCheckBox
+		                             label: 'Debugger';
+		                             state: model debuggerExtensionEnabled;
+		                             yourself.
+
 
 	icebergExtensionCheckBox := self newCheckBox
-			                    label: 'Iceberg';
-			                    state: model icebergExtensionEnabled;
-			                    yourself.
+		                            label: 'Iceberg';
+		                            state: model icebergExtensionEnabled;
+		                            yourself.
 
 
 	browserAutoTabCheckBox := self newCheckBox
@@ -431,18 +455,19 @@ ChatPharoSettingsPresenter >> initializePresenters [
 		                     yourself.
 
 	saveSettingsButton := self newButton
-		label: 'Save Settings';
-		icon: (self iconNamed: #smallSave);
-		help: 'Persist current settings';
-		action: [ self saveSettings ];
-		yourself.
+		                      label: 'Save Settings';
+		                      icon: (self iconNamed: #smallSave);
+		                      help: 'Persist current settings';
+		                      action: [ self saveSettings ];
+		                      yourself.
 
 	apiDropList selectItem:
 		(model availableApiChoices detect: [ :assoc | assoc value = model agent class ] ifNone: [ model availableApiChoices first ]).
 
 	self refreshApiSettings.
 	self updateBrowserExtensionTab.
-	self updateIcebergExtensionTab
+	self updateIcebergExtensionTab.
+	self updateDebuggerExtensionTab
 ]
 
 { #category : 'initialization' }
@@ -537,6 +562,29 @@ ChatPharoSettingsPresenter >> newCustomToolsTab [
 ]
 
 { #category : 'initialization' }
+ChatPharoSettingsPresenter >> newDebuggerTab [
+
+	| infoLabel systemPromptInput |
+	infoLabel := self newLabel
+		             label: 'Debugger integration is enabled. Configure the system prompt used by Ask ChatPharo from the debugger.';
+		             yourself.
+	systemPromptInput := self newTextInput
+		                     placeholder: 'Debugger system prompt...';
+		                     text: model debuggerSystemPrompt;
+		                     yourself.
+	systemPromptInput whenTextChangedDo: [ :text | model debuggerSystemPrompt: text ].
+
+	^ SpPresenter new
+		  layout: (SpBoxLayout newTopToBottom
+				   spacing: 8;
+				   add: infoLabel expand: false;
+				   add: (self newLabel label: 'System prompt:') expand: false;
+				   add: systemPromptInput expand: true;
+				   yourself);
+		  yourself
+]
+
+{ #category : 'initialization' }
 ChatPharoSettingsPresenter >> newEthicsTab [
 	"Create the Ethics Director configuration tab."
 
@@ -596,9 +644,9 @@ ChatPharoSettingsPresenter >> newExtensionsTab [
 	^ SpPresenter new
 		  layout: (SpBoxLayout newTopToBottom
 				   add: browserExtensionCheckBox expand: false;
-				add: icebergExtensionCheckBox expand: false;
-					"add: browserAutoTabCheckBox expand: false;"
-				   yourself);
+				   add: icebergExtensionCheckBox expand: false;
+				 add: debuggerExtensionCheckBox expand: false;
+				   "add: browserAutoTabCheckBox expand: false;"yourself);
 		  yourself
 ]
 
@@ -626,9 +674,19 @@ ChatPharoSettingsPresenter >> newIcebergTab [
 		             label: 'Iceberg integration is enabled. Open the Iceberg commit browser to generate a commit message.';
 		             yourself.
 
+	systemPromptInput := self newTextInput
+		                     placeholder: 'Iceberg system prompt...';
+		                     text: model icebergSystemPrompt;
+		                     yourself.
+	systemPromptInput whenTextChangedDo: [ :text | model icebergSystemPrompt: text ].
+
+
 	^ SpPresenter new
 		  layout: (SpBoxLayout newTopToBottom
+		 spacing: 8;
 				   add: infoLabel expand: false;
+				   add: (self newLabel label: 'System prompt:') expand: false;
+				   add: systemPromptInput expand: true;
 				   yourself);
 		  yourself
 ]
@@ -782,6 +840,14 @@ ChatPharoSettingsPresenter >> removeBrowserExtensionTab [
 ]
 
 { #category : 'initialization' }
+ChatPharoSettingsPresenter >> removeDebuggerExtensionTab [
+
+	debuggerExtensionPage ifNotNil: [
+		notebook removePage: debuggerExtensionPage.
+		debuggerExtensionPage := nil ]
+]
+
+{ #category : 'initialization' }
 ChatPharoSettingsPresenter >> removeIcebergExtensionTab [
 
 	icebergExtensionPage ifNotNil: [
@@ -808,6 +874,14 @@ ChatPharoSettingsPresenter >> updateBrowserExtensionTab [
     browserExtensionCheckBox state
         ifTrue: [ self ensureBrowserExtensionTab ]
         ifFalse: [ self removeBrowserExtensionTab ]
+]
+
+{ #category : 'initialization' }
+ChatPharoSettingsPresenter >> updateDebuggerExtensionTab [
+
+	debuggerExtensionCheckBox state
+		ifTrue: [ self ensureDebuggerExtensionTab ]
+		ifFalse: [ self removeDebuggerExtensionTab ]
 ]
 
 { #category : 'initialization' }

@@ -46,14 +46,16 @@ StAskChatPharoFromDebuggerCommand class >> icon [
 { #category : 'testing' }
 StAskChatPharoFromDebuggerCommand >> appliesTo: aDebugger [
 
-	^ ChatPharoSettings default askFeatureEnabled
+	^ ((ChatPharoSettings default askFeatureEnabled)
+		and: [ ChatPharoSettings default debuggerExtensionEnabled ])
 		and: [ aDebugger selectedContext notNil ]
 ]
 
 { #category : 'executing' }
 StAskChatPharoFromDebuggerCommand >> execute [
 
-	| method |
+	| method settings |
 	method := self debugger stackSelectionMethod ifNil: [ ^ self ].
-	ChatPharo askAboutMethod: method
+settings := ChatPharoSettings default.
+	ChatPharo askAboutMethod: method withSystemPrompt: settings debuggerSystemPrompt
 ]

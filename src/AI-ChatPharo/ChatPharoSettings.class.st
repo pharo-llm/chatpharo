@@ -21,8 +21,11 @@ Class {
 	#instVars : [
 		'agent',
 		'browserExtensionEnabled',
+		'debuggerExtensionEnabled',
 		'icebergExtensionEnabled',
 		'commitMessageTemplate',
+		'icebergSystemPrompt',
+		'debuggerSystemPrompt',
 		'browserToolsEnabled',
 		'maximumIterations',
 		'browserAutoTabEnabled',
@@ -100,8 +103,12 @@ ChatPharoSettings class >> loadOrNew [
 				  | settings |
 				  settings := STON fromStream: file.
 				  settings browserExtensionEnabled ifNil: [ settings browserExtensionEnabled: false ].
-				 settings icebergExtensionEnabled ifNil: [ settings icebergExtensionEnabled: false ].
+								  settings debuggerExtensionEnabled ifNil: [ settings debuggerExtensionEnabled: false ].
+
+				  settings icebergExtensionEnabled ifNil: [ settings icebergExtensionEnabled: false ].
 				  settings commitMessageTemplate ifNil: [ settings commitMessageTemplate: settings defaultCommitMessageTemplate ].
+				  settings icebergSystemPrompt ifNil: [ settings icebergSystemPrompt: settings defaultIcebergSystemPrompt ].
+				  settings debuggerSystemPrompt ifNil: [ settings debuggerSystemPrompt: settings defaultDebuggerSystemPrompt ].
 				  settings browserAutoTabEnabled ifNil: [ settings browserAutoTabEnabled: true ].
 				  settings browserToolsEnabled ifNil: [
 					  settings browserToolsEnabled: (ChatPharoBrowserEnvironment new tools collect: [ :t | t name ]) asOrderedCollection ].
@@ -480,6 +487,38 @@ ChatPharoSettings >> customToolsAsClients [
 		collect: [ :tool | tool asChatPharoClient ]
 ]
 
+{ #category : 'as yet unclassified' }
+ChatPharoSettings >> debuggerExtensionEnabled [
+
+	^ debuggerExtensionEnabled ifNil: [ debuggerExtensionEnabled := false ]
+]
+
+{ #category : 'as yet unclassified' }
+ChatPharoSettings >> debuggerExtensionEnabled: aBoolean [
+
+	debuggerExtensionEnabled := aBoolean.
+	self class setDefault: self.
+	self class saveDefault.
+	ChatPharoLogger logFrontend: 'Debugger extension toggled'
+		details: (Dictionary new
+			at: 'enabled' put: aBoolean;
+			yourself)
+]
+
+{ #category : 'as yet unclassified' }
+ChatPharoSettings >> debuggerSystemPrompt [
+
+	^ debuggerSystemPrompt ifNil: [ debuggerSystemPrompt := self defaultDebuggerSystemPrompt ]
+]
+
+{ #category : 'as yet unclassified' }
+ChatPharoSettings >> debuggerSystemPrompt: aString [
+
+	debuggerSystemPrompt := aString.
+	self class setDefault: self.
+	self class saveDefault
+]
+
 { #category : 'accessing' }
 ChatPharoSettings >> defaultCommitMessageTemplate [
 
@@ -492,6 +531,26 @@ ChatPharoSettings >> defaultCommitMessageTemplate [
 #refactor:
 #chore:
 #comment:'
+]
+
+{ #category : 'as yet unclassified' }
+ChatPharoSettings >> defaultDebuggerSystemPrompt [
+
+	^ 'You are a Pharo debugging assistant. Explain the selected method and suggest likely root causes and concrete next debugging steps.'
+]
+
+{ #category : 'as yet unclassified' }
+ChatPharoSettings >> defaultIcebergSystemPrompt [
+
+	^ String streamContents: [ :stream |
+		stream
+			<< 'You are a Pharo developer generating an Iceberg commit message based on a diff.';
+			<< String lf;
+			<< 'Follow this commit template format and return ONLY the final commit message line:';
+			<< String lf;
+			<< '{{commitTemplate}}';
+			<< String lf;
+			<< 'Pick one prefix (feat:, fix:, refactor:, chore:, comment:) and write an imperative concise message.' ]
 ]
 
 { #category : 'developer' }
@@ -707,13 +766,30 @@ ChatPharoSettings >> icebergExtensionEnabled: aBoolean [
 ]
 
 { #category : 'initialization' }
+ChatPharoSettings >> icebergSystemPrompt [
+
+	^ icebergSystemPrompt ifNil: [ icebergSystemPrompt := self defaultIcebergSystemPrompt ]
+]
+
+{ #category : 'initialization' }
+ChatPharoSettings >> icebergSystemPrompt: aString [
+
+	icebergSystemPrompt := aString.
+	self class setDefault: self.
+	self class saveDefault
+]
+
+{ #category : 'initialization' }
 ChatPharoSettings >> initialize [
 
 	super initialize.
 	agent := ChatPharoNullAgent new.
 	browserExtensionEnabled := false.
+	debuggerExtensionEnabled := false.
 	icebergExtensionEnabled := false.
 	commitMessageTemplate := self defaultCommitMessageTemplate.
+	icebergSystemPrompt := self defaultIcebergSystemPrompt.
+	debuggerSystemPrompt := self defaultDebuggerSystemPrompt.
 	browserAutoTabEnabled := true.
 	cacheEnabled := true.
 	feedbackButtonsEnabled := false.

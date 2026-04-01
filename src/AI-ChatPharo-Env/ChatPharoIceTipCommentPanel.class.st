@@ -17,15 +17,7 @@ Class {
 { #category : 'private' }
 ChatPharoIceTipCommentPanel >> commitMessageSystemPrompt [
 
-	^ String streamContents: [ :stream |
-		stream
-			<< 'You are a Pharo developer generating an Iceberg commit message based on a diff.';
-			<< String lf;
-			<< 'Follow this commit template format and return ONLY the final commit message line:';
-			<< String lf;
-			<< ChatPharoSettings default commitMessageTemplate;
-			<< String lf;
-			<< 'Pick one prefix (#feat:, #fix:, #refactor:, #chore:, #comment:) and write an imperative concise message.' ]
+^ (ChatPharoSettings default icebergSystemPrompt copyReplaceAll: '{{commitTemplate}}' with: ChatPharoSettings default commitMessageTemplate)
 ]
 
 { #category : 'layout' }
