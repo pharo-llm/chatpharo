@@ -140,6 +140,9 @@ ChatPharoThinkingPresenter >> openThinkingDetails [
 { #category : 'initialization' }
 ChatPharoThinkingPresenter >> phase: aSymbol [
 
+	currentPhase := aSymbol.
+	aSymbol = #finished ifTrue: [
+		self updateElapsedThinkingTime ].
 	self updateButtonLabel.
 	detailWindow ifNotNil: [ :w | w presenter updateDetails ]
 ]
