@@ -73,25 +73,35 @@ ChatPharoClaudeAgent >> configurationErrorMessage [
 	^ 'Please complete all required fields.'
 ]
 
-{ #category : 'accessing' }
+{ #category : 'initialization' }
 ChatPharoClaudeAgent >> getResponseForPrompt: userPrompt [
 
-	| api result max count |
+	| api result max count params accIn accOut |
 	api := ChatPharoTool claudeWithAPIKey: apiKey system: self systemPrompt tools: self tools.
 	self onToolExecution ifNotNil: [ api onToolExecution: self onToolExecution ].
+	params := self requestParameters copy.
+	temperature ifNotNil: [ params at: 'temperature' put: temperature ].
+	api requestParameters: params.
 	model ifNotEmpty: [ api model: model ].
 	self history ifNil: [ self history: ChatPharoHistory new ].
 	self history addMessage: (ChatPharoHistorySaver role: 'user' content: userPrompt).
 	result := api getResponseForHistory: self history.
-	self history addMessage: result.
-
+	self history addMessage: result. 
+	accIn := result inputTokens ifNil: [ 0 ].
+	accOut := result outputTokens ifNil: [ 0 ].
 	max := ChatPharoSettings default maximumIterations ifNil: [ 1 ].
 	count := 0.
 	[ result toolCalls notNil and: [ count < max ] ] whileTrue: [
 			result := api getResponseForHistory: self history.
 			self history addMessage: result.
+			result inputTokens ifNotNil: [ :v | accIn := accIn + v ].
+			result outputTokens ifNotNil: [ :v | accOut := accOut + v ].
 			count := count + 1 ].
-self response: result.
+	result inputTokens: accIn.
+	result outputTokens: accOut.
+	result totalTokens: accIn + accOut.
+	self response: result.
+	self response: result.
 	^ result
 ]
 

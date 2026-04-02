@@ -240,12 +240,22 @@ ChatPharoThinkingDetailPresenter >> updateDetails [
 
 	modelLabel label: 'Model: ' , (thinkingPresenter modelNameText ifEmpty: [ 'Not selected' ]).
 
-tokensLabel label: 'Tokens: ' , (thinkingPresenter totalTokens
-		ifNil: [ '--' ]
-		ifNotNil: [ :v | v asString ]).
-		
+	tokensLabel label: (String streamContents: [ :stream |
+		stream nextPutAll: 'Tokens: '.
+		thinkingPresenter inputTokens
+			ifNil: [ stream nextPutAll: '--' ]
+			ifNotNil: [ :v | stream nextPutAll: v asString; nextPutAll: ' in' ].
+		stream nextPutAll: ' / '.
+		thinkingPresenter outputTokens
+			ifNil: [ stream nextPutAll: '--' ]
+			ifNotNil: [ :v | stream nextPutAll: v asString; nextPutAll: ' out' ].
+		stream nextPutAll: ' = '.
+		thinkingPresenter totalTokens
+			ifNil: [ stream nextPutAll: '--' ]
+			ifNotNil: [ :v | stream nextPutAll: v asString; nextPutAll: ' total' ] ]).
+
 	toolsText text: self buildToolsSummary.
-usageText text: self buildUsageSummary.
+	usageText text: self buildUsageSummary.
 	thinkingText text: (thinkingPresenter thinkingContent ifEmpty: [ 'No thinking content available.' ]).
 
 	ethicsSummaryText text: self buildEthicsSummary

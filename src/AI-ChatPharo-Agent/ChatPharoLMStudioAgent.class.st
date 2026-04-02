@@ -85,7 +85,7 @@ ChatPharoLMStudioAgent >> configurationErrorMessage [
 { #category : 'accessing' }
 ChatPharoLMStudioAgent >> getResponseForPrompt: userPrompt [
 
-	| api result params |
+	| api result params accIn accOut |
 	api := ChatPharoTool
 		       lmStudioWithHost: host
 		       port: port
@@ -99,12 +99,18 @@ ChatPharoLMStudioAgent >> getResponseForPrompt: userPrompt [
 	self history ifNil: [ self history: ChatPharoHistory new ].
 	self history addMessage: (ChatPharoHistorySaver role: 'user' content: userPrompt).
 	result := api getResponseForHistory: self history.
-	self history addMessage: result.
-
+	self history addMessage: result. 
+	accIn := result inputTokens ifNil: [ 0 ].
+	accOut := result outputTokens ifNil: [ 0 ].
 	[ result toolCalls isEmptyOrNil not ] whileTrue: [
 			result := api getResponseForHistory: self history.
-			self history addMessage: result ].
-		self response: result.
+			self history addMessage: result.
+			result inputTokens ifNotNil: [ :v | accIn := accIn + v ].
+			result outputTokens ifNotNil: [ :v | accOut := accOut + v ] ].
+	result inputTokens: accIn.
+	result outputTokens: accOut.
+	result totalTokens: accIn + accOut.
+	self response: result.
 	^ result content
 ]
 

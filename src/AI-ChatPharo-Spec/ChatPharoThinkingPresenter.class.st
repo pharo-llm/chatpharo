@@ -292,16 +292,23 @@ ChatPharoThinkingPresenter >> updateButtonLabel [
 						         nextPutAll: ' | ';
 						         nextPutAll: executedTools size asString;
 						         nextPutAll: ' tool';
-						       nextPutAll: (executedTools size > 1 ifTrue: [ 's' ] ifFalse: [ '' ]) ].
-		totalTokens ifNotNil: [ :t |
-			stream
-				nextPutAll: ' | ';
-				nextPutAll: t asString;
-				nextPutAll: ' used' ].
-		self remainingTokenBudgetText ifNotEmpty: [ :remaining |
-			stream
-				nextPutAll: ' | ';
-				nextPutAll: remaining ] ].
+						         nextPutAll: (executedTools size > 1
+								          ifTrue: [ 's' ]
+								          ifFalse: [ '' ]) ].
+			         (inputTokens notNil or: [ outputTokens notNil or: [ totalTokens notNil ] ]) ifTrue: [
+			stream nextPutAll: ' | '.
+			inputTokens ifNotNil: [ :v |
+				stream nextPutAll: v asString; nextPutAll: ' in' ].
+			outputTokens ifNotNil: [ :v |
+				inputTokens ifNotNil: [ stream nextPutAll: ' / ' ].
+				stream nextPutAll: v asString; nextPutAll: ' out' ].
+			totalTokens ifNotNil: [ :t |
+				(inputTokens notNil or: [ outputTokens notNil ]) ifTrue: [ stream nextPutAll: ' = ' ].
+				stream nextPutAll: t asString; nextPutAll: ' total' ] ].
+			         self remainingTokenBudgetText ifNotEmpty: [ :remaining |
+					         stream
+						         nextPutAll: ' | ';
+						         nextPutAll: remaining ] ].
 	thinkingButton label: label
 ]
 

@@ -190,7 +190,7 @@ ChatPharoOllamaAgent >> configurationErrorMessage [
 { #category : 'initialization' }
 ChatPharoOllamaAgent >> getResponseForPrompt: userPrompt [
 
-	| api result params |
+	| api result params accIn accOut |
 	api := ChatPharoTool ollamaWithSystem: self systemPrompt tools: self tools.
 	self onToolExecution ifNotNil: [ api onToolExecution: self onToolExecution ].
 	model ifNotEmpty: [ api model: model ].
@@ -200,13 +200,20 @@ ChatPharoOllamaAgent >> getResponseForPrompt: userPrompt [
 	self history ifNil: [ self history: ChatPharoHistory new ].
 	self history addMessage: (ChatPharoHistorySaver role: 'user' content: userPrompt).
 	result := api getResponseForHistory: self history.
-	self history addMessage: result.
+	self history addMessage: result. 
+	accIn := result inputTokens ifNil: [ 0 ].
+	accOut := result outputTokens ifNil: [ 0 ].
 
-	[ result toolCalls notNil ] whileTrue: [ 
+	[ result toolCalls notNil ] whileTrue: [
 			result toolCalls do: [ :toolCall |
-				self history addMessage: (ChatPharoHistorySaver role: 'tool' content: toolCall content toolCallId: toolCall id) ]. 
+				self history addMessage: (ChatPharoHistorySaver role: 'tool' content: toolCall content toolCallId: toolCall id) ].
 			result := api getResponseForHistory: self history.
-			self history addMessage: result ].
+			self history addMessage: result.
+			result inputTokens ifNotNil: [ :v | accIn := accIn + v ].
+			result outputTokens ifNotNil: [ :v | accOut := accOut + v ] ]. 
+	result inputTokens: accIn.
+	result outputTokens: accOut.
+	result totalTokens: accIn + accOut.
 	self response: result.
 	^ result content
 ]

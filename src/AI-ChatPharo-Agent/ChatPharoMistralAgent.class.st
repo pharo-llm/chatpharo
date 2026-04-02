@@ -63,8 +63,9 @@ ChatPharoMistralAgent >> configurationErrorMessage [
 { #category : 'initialization' }
 ChatPharoMistralAgent >> getResponseForPrompt: userPrompt [
 
-	| api result params |
+	| api result params accIn accOut |
 	api := ChatPharoTool mistralWithAPIKey: apiKey system: self systemPrompt tools: self tools.
+	self onToolExecution ifNotNil: [ api onToolExecution: self onToolExecution ].
 	model ifNotEmpty: [ api model: model ].
 	params := self requestParameters copy.
 	temperature ifNotNil: [ params at: 'temperature' put: temperature ].
@@ -74,10 +75,17 @@ ChatPharoMistralAgent >> getResponseForPrompt: userPrompt [
 	result := api getResponseForHistory: self history.
 	self history addMessage: result.
 
+	accIn := result inputTokens ifNil: [ 0 ].
+	accOut := result outputTokens ifNil: [ 0 ].
 	[ result toolCalls notNil ] whileTrue: [
 			result := api getResponseForHistory: self history.
-			self history addMessage: result ].
-self response: result.
+			self history addMessage: result.
+			result inputTokens ifNotNil: [ :v | accIn := accIn + v ].
+			result outputTokens ifNotNil: [ :v | accOut := accOut + v ] ].
+	result inputTokens: accIn.
+	result outputTokens: accOut.
+	result totalTokens: accIn + accOut.
+	self response: result.
 	^ result content
 ]
 

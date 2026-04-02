@@ -270,7 +270,7 @@ ChatPharoTool >> getResponseForHistory: history [
 	responseJson := STONJSON fromString: response contents.
 	message := (responseJson at: 'choices') first at: 'message'.
 	usage := responseJson at: 'usage' ifAbsent: [ nil ].
-	toolCalls := self toolCallsFromMessage: message. 
+	toolCalls := self toolCallsFromMessage: message.
 	thinkingText := nil.
 	toolCalls ifNotNil: [
 			toolCalls ifNotEmpty: [
@@ -299,12 +299,18 @@ ChatPharoTool >> getResponseForHistory: history [
 	result := (ChatPharoHistorySaver role: 'assistant' content: (message at: 'content' ifAbsent: [ nil ]) toolCalls: toolCalls)
 		          thinking: thinkingText;
 		          yourself.
-	usage ifNotNil: [
-		result inputTokens: (usage at: 'prompt_tokens' ifAbsent: [
-			usage at: 'input_tokens' ifAbsent: [ nil ] ]).
-		result outputTokens: (usage at: 'completion_tokens' ifAbsent: [
-			usage at: 'output_tokens' ifAbsent: [ nil ] ]).
-		result totalTokens: (usage at: 'total_tokens' ifAbsent: [ nil ]) ].
+	usage ifNotNil: [ | inTok outTok totTok |
+		inTok := usage at: 'prompt_tokens' ifAbsent: [
+			usage at: 'input_tokens' ifAbsent: [ nil ] ].
+		outTok := usage at: 'completion_tokens' ifAbsent: [
+			usage at: 'output_tokens' ifAbsent: [ nil ] ].
+		totTok := usage at: 'total_tokens' ifAbsent: [ nil ].
+		"Compute total when the API does not provide it (e.g. Anthropic)"
+		(totTok isNil and: [ inTok notNil and: [ outTok notNil ] ]) ifTrue: [
+			totTok := inTok + outTok ].
+		result inputTokens: inTok.
+		result outputTokens: outTok.
+		result totalTokens: totTok ].
 	^ result
 ]
 
