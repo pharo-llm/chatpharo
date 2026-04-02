@@ -23,7 +23,8 @@ Class {
 		'systemPrompt',
 		'onToolExecution',
 		'extraParameters',
-		'extraHeaders'
+		'extraHeaders',
+		'toolIndex'
 	],
 	#category : 'AI-ChatPharo-Tools-Core',
 	#package : 'AI-ChatPharo-Tools',
@@ -182,25 +183,26 @@ ChatPharoTool >> apiKey: anObject [
 { #category : 'initialization' }
 ChatPharoTool >> applyToolFunction: functionName arguments: arguments [
 
-	| temporalTool |
+"Look up the tool by name using the dictionary index (O(1) instead of linear scan),
+	 then fall back to the temporal tool registry."
+
+	| tool temporalTool |
 	onToolExecution ifNotNil: [ :blk | blk cull: functionName ].
-	tools ifNil: [ "Check temporal tools before giving up"
-			temporalTool := ChatPharoTemporalToolRegistry current toolNamed: functionName.
-			temporalTool ifNotNil: [
-					^ [ temporalTool applyTo: arguments ]
-						  on: Error
-						  do: [ :e | Dictionary with: 'error' -> e messageText ] ].
-			^ Dictionary with: 'error' -> ('There is no function named "{1}"' format: { functionName }) ].
-	tools do: [ :tool |
-			tool name = functionName ifTrue: [
-					^ [ tool applyTo: arguments ]
-						  on: Error
-						  do: [ :e | Dictionary with: 'error' -> e messageText ] ] ]. "Fall back to temporal tool registry"
+
+	"Try indexed tool lookup first"
+	tool := self toolIndex at: functionName ifAbsent: [ nil ].
+	tool ifNotNil: [
+		^ [ tool applyTo: arguments ]
+			on: Error
+			do: [ :e | Dictionary with: 'error' -> e messageText ] ].
+
+	"Fall back to temporal tool registry"
 	temporalTool := ChatPharoTemporalToolRegistry current toolNamed: functionName.
 	temporalTool ifNotNil: [
-			^ [ temporalTool applyTo: arguments ]
-				  on: Error
-				  do: [ :e | Dictionary with: 'error' -> e messageText ] ].
+		^ [ temporalTool applyTo: arguments ]
+			on: Error
+			do: [ :e | Dictionary with: 'error' -> e messageText ] ].
+
 	^ Dictionary with: 'error' -> ('There is no function named "{1}"' format: { functionName })
 ]
 
@@ -407,34 +409,100 @@ ChatPharoTool >> systemPrompt: aString [
 	^ systemPrompt := aString 
 ]
 
-{ #category : 'accessing' }
+{ #category : 'private' }
 ChatPharoTool >> toolCallsFromMessage: message [
+	"Parse tool calls from the message and execute them.
+	 When multiple tool calls are present, they are executed in parallel
+	 using forked processes with a shared semaphore for synchronization."
 
-    | calls |
-    calls := message at: 'tool_calls' ifAbsent: [ nil ].
-    calls isNil ifTrue: [ ^ nil ].
+	| calls |
+	calls := message at: 'tool_calls' ifAbsent: [ nil ].
+	calls isNil ifTrue: [ ^ nil ].
 
-    ^ calls collect: [ :c |
-        | fn rawArgs parsedArgs content callId |
-        fn := (c at: 'function') at: 'name'.
-        rawArgs := (c at: 'function') at: 'arguments' ifAbsent: [ '{}' ].
-        parsedArgs := (rawArgs isString
-            ifTrue: [
-                [ STONJSON fromString: rawArgs ]
-                    on: Error do: [ Dictionary with: 'error' -> 'Invalid arguments' ] ]
-            ifFalse: [ rawArgs ifNil: [ Dictionary new ] ]).
+	"For a single tool call, execute directly without parallelism overhead"
+	calls size = 1 ifTrue: [ ^ self toolCallsFromMessageSequential: calls ].
 
-        content := self jsonStringFor:
-            (self normalizeForJson: (self applyToolFunction: fn arguments: parsedArgs)).
+	"For multiple tool calls, execute in parallel"
+	^ self toolCallsFromMessageParallel: calls
+]
 
-        callId := c at: 'id' ifAbsent: [ 'tool-', (DateAndTime now asString) ].
+{ #category : 'private' }
+ChatPharoTool >> toolCallsFromMessageParallel: calls [
+	"Execute multiple tool calls in parallel using forked processes.
+	 Results are collected via a shared array and synchronized with a semaphore."
 
-        ChatPharoHistorySaverToolCall
-            id: callId
-            functionName: fn
-            arguments: (rawArgs isString ifTrue: [ rawArgs ] ifFalse: [ STONJSON toString: parsedArgs ])
-            content: content
-    ].
+	| results semaphore |
+	results := Array new: calls size.
+	semaphore := Semaphore new.
+
+	calls withIndexCollect: [ :c :index |
+		| fn rawArgs parsedArgs callId |
+		fn := (c at: 'function') at: 'name'.
+		rawArgs := (c at: 'function') at: 'arguments' ifAbsent: [ '{}' ].
+		parsedArgs := (rawArgs isString
+			ifTrue: [
+				[ STONJSON fromString: rawArgs ]
+					on: Error do: [ Dictionary with: 'error' -> 'Invalid arguments' ] ]
+			ifFalse: [ rawArgs ifNil: [ Dictionary new ] ]).
+		callId := c at: 'id' ifAbsent: [ 'tool-' , DateAndTime now asString ].
+
+		"Fork the tool execution"
+		[
+			| content |
+			[ content := self jsonStringFor:
+				(self normalizeForJson: (self applyToolFunction: fn arguments: parsedArgs)) ]
+				on: Error
+				do: [ :e | content := self jsonStringFor: (Dictionary with: 'error' -> e messageText) ].
+			results at: index put: (ChatPharoHistorySaverToolCall
+				id: callId
+				functionName: fn
+				arguments: (rawArgs isString ifTrue: [ rawArgs ] ifFalse: [ STONJSON toString: parsedArgs ])
+				content: content).
+			semaphore signal
+		] fork ].
+
+	"Wait for all tool calls to complete"
+	calls size timesRepeat: [ semaphore wait ].
+	^ results
+]
+
+{ #category : 'private' }
+ChatPharoTool >> toolCallsFromMessageSequential: calls [
+	"Execute tool calls sequentially (used when there is only one call)."
+
+	^ calls collect: [ :c |
+		| fn rawArgs parsedArgs content callId |
+		fn := (c at: 'function') at: 'name'.
+		rawArgs := (c at: 'function') at: 'arguments' ifAbsent: [ '{}' ].
+		parsedArgs := (rawArgs isString
+			ifTrue: [
+				[ STONJSON fromString: rawArgs ]
+					on: Error do: [ Dictionary with: 'error' -> 'Invalid arguments' ] ]
+			ifFalse: [ rawArgs ifNil: [ Dictionary new ] ]).
+
+		content := self jsonStringFor:
+			(self normalizeForJson: (self applyToolFunction: fn arguments: parsedArgs)).
+
+		callId := c at: 'id' ifAbsent: [ 'tool-' , DateAndTime now asString ].
+
+		ChatPharoHistorySaverToolCall
+			id: callId
+			functionName: fn
+			arguments: (rawArgs isString ifTrue: [ rawArgs ] ifFalse: [ STONJSON toString: parsedArgs ])
+			content: content
+	]
+]
+
+{ #category : 'initialization' }
+ChatPharoTool >> toolIndex [
+	"Returns a Dictionary mapping tool name -> tool for O(1) lookup.
+	 Lazily built and invalidated when tools change."
+
+	^ toolIndex ifNil: [
+		toolIndex := Dictionary new.
+		tools ifNotNil: [
+			tools do: [ :tool | toolIndex at: tool name put: tool ] ].
+		toolIndex ]
 ]
 
 { #category : 'accessing' }
@@ -446,5 +514,6 @@ ChatPharoTool >> tools [
 { #category : 'accessing' }
 ChatPharoTool >> tools: anObject [
 
-	tools := anObject
+	tools := anObject.
+	toolIndex := nil
 ]

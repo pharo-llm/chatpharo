@@ -5,7 +5,8 @@ Class {
 	#name : 'ChatPharoHistory',
 	#superclass : 'Object',
 	#instVars : [
-		'messages'
+		'messages',
+		'cachedPromptPrefix'
 	],
 	#category : 'AI-ChatPharo-History',
 	#package : 'AI-ChatPharo-History'
@@ -20,7 +21,8 @@ ChatPharoHistory >> addAssistant: text [
 { #category : 'initialization' }
 ChatPharoHistory >> addMessage: aHistoryMessage [
 
-    messages add: aHistoryMessage
+	messages add: aHistoryMessage.
+	cachedPromptPrefix := nil
 ]
 
 { #category : 'initialization' }
@@ -30,9 +32,11 @@ ChatPharoHistory >> addUser: text [
 ]
 
 { #category : 'initialization' }
-ChatPharoHistory >> asPromptPrefix [ 
+ChatPharoHistory >> asPromptPrefix [
 
-    ^ String streamContents:[ :s | messages do:[ :m | m historyStringOn: s ] ]
+	  ^ cachedPromptPrefix ifNil: [
+        cachedPromptPrefix := String streamContents: [ :s |
+            messages do: [ :m | m historyStringOn: s ] ] ]
 ]
 
 { #category : 'initialization' }
@@ -44,7 +48,8 @@ ChatPharoHistory >> chatMessagesOn: aStream [
 { #category : 'initialization' }
 ChatPharoHistory >> clear [
 
-    messages removeAll
+	messages removeAll.
+	cachedPromptPrefix := nil
 ]
 
 { #category : 'initialization' }

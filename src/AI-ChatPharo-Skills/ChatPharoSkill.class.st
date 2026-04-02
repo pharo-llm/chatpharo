@@ -22,7 +22,8 @@ Class {
 	#superclass : 'Object',
 	#instVars : [
 		'enabled',
-		'automaticEnabled'
+		'automaticEnabled',
+		'cachedNormalizedKeywords'
 	],
 	#category : 'AI-ChatPharo-Skills',
 	#package : 'AI-ChatPharo-Skills'
@@ -45,6 +46,21 @@ ChatPharoSkill >> automaticEnabled [
 ChatPharoSkill >> automaticEnabled: aBoolean [
 
 	automaticEnabled := aBoolean
+]
+
+{ #category : 'accessing' }
+ChatPharoSkill >> cachedNormalizedKeywords [
+	"Returns cached lowercased keywords including name, description, and keyword list.
+	 Computed once and reused for fast matching."
+
+	^ cachedNormalizedKeywords ifNil: [
+		| kws |
+		kws := OrderedCollection new.
+		kws add: self name asString asLowercase.
+		kws add: self description asString asLowercase.
+		self keywords ifNotNil: [ :keywordList |
+			kws addAll: (keywordList collect: [ :k | k asString asLowercase ]) ].
+		cachedNormalizedKeywords := kws asArray ]
 ]
 
 { #category : 'accessing' }
@@ -108,19 +124,14 @@ ChatPharoSkill >> keywords [
 
 { #category : 'accessing' }
 ChatPharoSkill >> matchesKeywords: searchTerms [
-	"Returns true if any of the searchTerms match this skill's keywords"
+"Returns true if any of the searchTerms match this skill's keywords.
+	 Uses cached normalized keywords to avoid recomputation."
 
-	| normalizedKeywords normalizedTerms |
-	normalizedKeywords := OrderedCollection new.
-	normalizedKeywords add: self name asString.
-	normalizedKeywords add: self description asString.
-	self keywords ifNotNil: [ :keywordList |
-		normalizedKeywords addAll: (keywordList collect: [ :k | k asString ]) ].
-	normalizedKeywords := normalizedKeywords collect: [ :k | k asLowercase ].
+	| normalizedTerms |
 	normalizedTerms := (searchTerms ifNil: [ #() ])
 		collect: [ :term | term asString asLowercase ].
 	^ normalizedTerms anySatisfy: [ :term |
-		  normalizedKeywords anySatisfy: [ :kw |
+		  self cachedNormalizedKeywords anySatisfy: [ :kw |
 			  kw includesSubstring: term ] ]
 ]
 

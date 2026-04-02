@@ -17,7 +17,9 @@ Class {
 	#name : 'ChatPharoSkillRegistry',
 	#superclass : 'Object',
 	#instVars : [
-		'skills'
+		'skills',
+		'keywordIndex',
+		'skillsByName'
 	],
 	#classInstVars : [
 		'default'
@@ -181,21 +183,34 @@ stopWords := #('use' 'uses' 'using').
 { #category : 'as yet unclassified' }
 ChatPharoSkillRegistry >> hasSkillNamed: skillName [
 
-	^ self allSkills anySatisfy: [ :skill | skill name = skillName ]
+	^ skillsByName includesKey: skillName
 ]
 
 { #category : 'as yet unclassified' }
 ChatPharoSkillRegistry >> initialize [
 
 	super initialize.
-	skills := self discoverSkills asOrderedCollection
+	skills := self discoverSkills asOrderedCollection.
+	self rebuildIndexes
+]
+
+{ #category : 'indexing' }
+ChatPharoSkillRegistry >> rebuildIndexes [
+	"Rebuild the keyword index and name index for fast lookups"
+
+	keywordIndex := Dictionary new.
+	skillsByName := Dictionary new.
+	skills do: [ :skill |
+		skillsByName at: skill name put: skill.
+		skill cachedNormalizedKeywords do: [ :kw |
+			(keywordIndex at: kw ifAbsentPut: [ Set new ]) add: skill ] ]
 ]
 
 { #category : 'as yet unclassified' }
 ChatPharoSkillRegistry >> refresh [
-	"Re-discovers all skills. Call this after loading new skill packages."
 
-	skills := self discoverSkills asOrderedCollection
+skills := self discoverSkills asOrderedCollection.
+	self rebuildIndexes
 ]
 
 { #category : 'as yet unclassified' }
@@ -210,6 +225,7 @@ ChatPharoSkillRegistry >> registerSkill: aSkillOrClass [
 	skills ifNil: [ skills := OrderedCollection new ].
 	skills removeAllSuchThat: [ :existing | existing name = skill name ].
 	skills add: skill.
+	self rebuildIndexes.
 	^ skill
 ]
 
@@ -222,18 +238,22 @@ ChatPharoSkillRegistry >> setAutomaticEnabled: aBoolean forSkillNamed: skillName
 
 { #category : 'as yet unclassified' }
 ChatPharoSkillRegistry >> skillNamed: skillName [
-	"Returns a skill by name, or nil if not found"
 
-	^ self allSkills
-		detect: [ :skill | skill name = skillName ]
-		ifNone: [ nil ]
+	^ skillsByName at: skillName ifAbsent: [ nil ]
 ]
 
 { #category : 'as yet unclassified' }
 ChatPharoSkillRegistry >> skillsForKeywords: keywordCollection [
-	"Returns skills that match any of the given keywords"
 
-	^ self allSkills select: [ :skill | skill matchesKeywords: keywordCollection ]
+	| matches normalizedTerms |
+	matches := Set new.
+	normalizedTerms := (keywordCollection ifNil: [ #() ])
+		collect: [ :term | term asString asLowercase ].
+	normalizedTerms do: [ :term |
+		keywordIndex keysAndValuesDo: [ :kw :skillSet |
+			(kw includesSubstring: term) ifTrue: [
+				matches addAll: skillSet ] ] ].
+	^ matches asOrderedCollection
 ]
 
 { #category : 'as yet unclassified' }
