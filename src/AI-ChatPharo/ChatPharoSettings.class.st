@@ -1208,7 +1208,11 @@ ChatPharoSettings >> privateSetMemoryRetentionDays: aNumber [
 
 { #category : 'private' }
 ChatPharoSettings >> privateSetMessageLimit: aNumber [
-	"Set messageLimit without triggering save. Used during loading."
+
+	aNumber ifNil: [ ^ self ethicsDirector messageLimit: 50 ].
+	(aNumber isNumber and: [ aNumber < 1 ])
+		ifTrue: [ ^ self ethicsDirector messageLimit: 1 ].
+
 	self ethicsDirector messageLimit: aNumber
 ]
 

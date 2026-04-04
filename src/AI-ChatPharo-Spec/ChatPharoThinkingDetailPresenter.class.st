@@ -15,7 +15,9 @@ Class {
 		'thinkingText',
 		'ethicsSummaryText',
 		'usageText',
-		'notebook'
+		'notebook',
+		'cachedEthicsSummary',
+		'cachedEthicsSignature'
 	],
 	#category : 'AI-ChatPharo-Spec-Ethics',
 	#package : 'AI-ChatPharo-Spec',
@@ -24,62 +26,37 @@ Class {
 
 { #category : 'as yet unclassified' }
 ChatPharoThinkingDetailPresenter >> buildEthicsSummary [
-	"Build a summary of the Ethics Director settings"
+	
+	| director signature |
+	director := ChatPharoSettings default ethicsDirector.
+	signature := self ethicsSignatureFor: director.
+	(cachedEthicsSummary notNil and: [ cachedEthicsSignature = signature ])
+		ifTrue: [ ^ cachedEthicsSummary ].
 
-	| settings director |
-	settings := ChatPharoSettings default.
-	director := settings ethicsDirector.
-
-	^ String streamContents: [ :stream |
+	cachedEthicsSignature := signature.
+	cachedEthicsSummary := String streamContents: [ :stream |
 		stream
-			nextPutAll: 'Ethics Director';
-			cr;
-			nextPutAll: String new , '======================';
-			cr; cr.
-
-		stream
+			nextPutAll: 'Ethics Director'; cr;
+			nextPutAll: '======================'; cr; cr;
 			nextPutAll: 'Enabled: ';
-			nextPutAll: director enabled asString;
-			cr; cr.
-
-		stream
-			nextPutAll: 'Mandate:';
-			cr;
-			nextPutAll: (director mandate ifEmpty: [ '(none)' ]);
-			cr; cr.
-
-		stream
-			nextPutAll: 'Resource Budgets';
-			cr;
-			nextPutAll: '----------------------';
-			cr.
-
-		stream
+			nextPutAll: director enabled asString; cr; cr;
+			nextPutAll: 'Mandate:'; cr;
+			nextPutAll: (director mandate ifEmpty: [ '(none)' ]); cr; cr;
+			nextPutAll: 'Resource Budgets'; cr;
+			nextPutAll: '----------------------'; cr;
 			nextPutAll: 'Token budget: ';
-			nextPutAll: director tokenBudget asString;
-			cr.
-
-		stream
+			nextPutAll: director tokenBudget asString; cr;
 			nextPutAll: 'Cognitive load budget: ';
-			nextPutAll: director cognitiveLoadBudget asString;
-			cr.
-
-		stream
+			nextPutAll: director cognitiveLoadBudget asString; cr;
 			nextPutAll: 'Time budget: ';
 			nextPutAll: director timeBudgetMinutes asString;
-			nextPutAll: ' minutes';
-			cr.
-
-		stream
+			nextPutAll: ' minutes'; cr;
 			nextPutAll: 'Message limit: ';
-			nextPutAll: director messageLimit asString;
-			cr.
-
-		stream
+			nextPutAll: director messageLimit asString; cr;
 			nextPutAll: 'Request timeout: ';
 			nextPutAll: director requestTimeoutSeconds asString;
-			nextPutAll: ' seconds';
-			cr ]
+			nextPutAll: ' seconds'; cr ].
+	^ cachedEthicsSummary
 ]
 
 { #category : 'tools' }
@@ -162,6 +139,19 @@ ChatPharoThinkingDetailPresenter >> defaultLayout [
 		  yourself
 ]
 
+{ #category : 'as yet unclassified' }
+ChatPharoThinkingDetailPresenter >> ethicsSignatureFor: aDirector [
+
+	^ {
+		aDirector enabled.
+		aDirector mandate.
+		aDirector tokenBudget.
+		aDirector cognitiveLoadBudget.
+		aDirector timeBudgetMinutes.
+		aDirector messageLimit.
+		aDirector requestTimeoutSeconds }
+]
+
 { #category : 'initialization' }
 ChatPharoThinkingDetailPresenter >> initialize [
 
@@ -230,17 +220,20 @@ ChatPharoThinkingDetailPresenter >> thinkingPresenter: aThinkingPresenter [
 
 { #category : 'initialization' }
 ChatPharoThinkingDetailPresenter >> updateDetails [
-	"Refresh all displayed information from the thinking presenter"
 
+	| newPhase newElapsed newModel newTokens newTools newUsage newThinking newEthics |
 	thinkingPresenter ifNil: [ ^ self ].
 
-	phaseLabel label: 'Phase: ' , thinkingPresenter phaseText.
+	newPhase := 'Phase: ' , thinkingPresenter phaseText.
+	phaseLabel label = newPhase ifFalse: [ phaseLabel label: newPhase ].
 
-	elapsedLabel label: 'Elapsed: ' , thinkingPresenter formattedElapsedThinkingTime.
+	newElapsed := 'Elapsed: ' , thinkingPresenter formattedElapsedThinkingTime.
+	elapsedLabel label = newElapsed ifFalse: [ elapsedLabel label: newElapsed ].
 
-	modelLabel label: 'Model: ' , (thinkingPresenter modelNameText ifEmpty: [ 'Not selected' ]).
+	newModel := 'Model: ' , (thinkingPresenter modelNameText ifEmpty: [ 'Not selected' ]).
+	modelLabel label = newModel ifFalse: [ modelLabel label: newModel ].
 
-	tokensLabel label: (String streamContents: [ :stream |
+	newTokens := String streamContents: [ :stream |
 		stream nextPutAll: 'Tokens: '.
 		thinkingPresenter inputTokens
 			ifNil: [ stream nextPutAll: '--' ]
@@ -252,11 +245,18 @@ ChatPharoThinkingDetailPresenter >> updateDetails [
 		stream nextPutAll: ' = '.
 		thinkingPresenter totalTokens
 			ifNil: [ stream nextPutAll: '--' ]
-			ifNotNil: [ :v | stream nextPutAll: v asString; nextPutAll: ' total' ] ]).
+			ifNotNil: [ :v | stream nextPutAll: v asString; nextPutAll: ' total' ] ].
+	tokensLabel label = newTokens ifFalse: [ tokensLabel label: newTokens ].
 
-	toolsText text: self buildToolsSummary.
-	usageText text: self buildUsageSummary.
-	thinkingText text: (thinkingPresenter thinkingContent ifEmpty: [ 'No thinking content available.' ]).
+	newTools := self buildToolsSummary.
+	toolsText text = newTools ifFalse: [ toolsText text: newTools ].
 
-	ethicsSummaryText text: self buildEthicsSummary
+	newUsage := self buildUsageSummary.
+	usageText text = newUsage ifFalse: [ usageText text: newUsage ].
+
+	newThinking := thinkingPresenter thinkingContent ifEmpty: [ 'No thinking content available.' ].
+	thinkingText text = newThinking ifFalse: [ thinkingText text: newThinking ].
+
+	newEthics := self buildEthicsSummary.
+	ethicsSummaryText text = newEthics ifFalse: [ ethicsSummaryText text: newEthics ]
 ]

@@ -42,6 +42,28 @@ ChatPharoOptimizationTest >> testApplyToolFunctionUsesIndex [
 ]
 
 { #category : 'running' }
+ChatPharoOptimizationTest >> testCachedClientInvalidatedOnBaseURLChange [
+	"Changing baseURL should force a new client."
+
+	| tool first |
+	tool := ChatPharoTool ollamaWithSystem: 'test' tools: nil.
+	first := tool cachedClient.
+	tool baseURL: (ZnUrl fromString: 'http://localhost:9999/v1').
+	self deny: tool cachedClient identicalTo: first
+]
+
+{ #category : 'running' }
+ChatPharoOptimizationTest >> testCachedClientIsReused [
+	"cachedClient should return the same ZnClient instance on repeated calls."
+
+	| tool first second |
+	tool := ChatPharoTool ollamaWithSystem: 'test' tools: nil.
+	first := tool cachedClient.
+	second := tool cachedClient.
+	self assert: first identicalTo: second
+]
+
+{ #category : 'running' }
 ChatPharoOptimizationTest >> testHasSkillNamedUsesIndex [
 
 	self assert: (registry hasSkillNamed: 'TestSkill').
@@ -92,6 +114,108 @@ ChatPharoOptimizationTest >> testHistoryPromptPrefixIsCached [
 ]
 
 { #category : 'running' }
+ChatPharoOptimizationTest >> testNormalizeForJsonConvertsSymbolToString [
+	"Symbols should be converted to strings."
+
+	| tool result |
+	tool := ChatPharoTool ollamaWithSystem: 'test' tools: nil.
+	result := tool normalizeForJson: #hello.
+	self assert: result isString.
+	self assert: result equals: 'hello'.
+	self deny: result isSymbol
+]
+
+{ #category : 'running' }
+ChatPharoOptimizationTest >> testNormalizeForJsonPreSizesDictionary [
+	"Normalized dictionaries should contain all entries from the original."
+
+	| tool input result |
+	tool := ChatPharoTool ollamaWithSystem: 'test' tools: nil.
+	input := Dictionary new.
+	input at: 'a' put: 1.
+	input at: 'b' put: 'two'.
+	input at: 'c' put: #three.
+	result := tool normalizeForJson: input.
+	self assert: result size equals: 3.
+	self assert: (result at: 'a') equals: 1.
+	self assert: (result at: 'b') equals: 'two'.
+	self assert: (result at: 'c') equals: 'three'.
+	self deny: (result at: 'c') isSymbol
+]
+
+{ #category : 'running' }
+ChatPharoOptimizationTest >> testNormalizeForJsonSkipsStringCopy [
+	"Strings should be returned as-is without copying."
+
+	| tool input result |
+	tool := ChatPharoTool ollamaWithSystem: 'test' tools: nil.
+	input := 'hello world'.
+	result := tool normalizeForJson: input.
+	self assert: result identicalTo: input
+]
+
+{ #category : 'running' }
+ChatPharoOptimizationTest >> testOpenAIChatToolInvalidatedOnDescriptionChange [
+	"Changing description should invalidate the cached openAIChatTool."
+
+	| client first |
+	client := ChatPharoClient
+		name: 'myTool'
+		description: 'old desc'
+		parameters: (Dictionary with: 'type' -> 'object' with: 'properties' -> Dictionary new)
+		block: [ :args | 'ok' ].
+	first := client openAIChatTool.
+	client description: 'new desc'.
+	self deny: client openAIChatTool identicalTo: first
+]
+
+{ #category : 'running' }
+ChatPharoOptimizationTest >> testOpenAIChatToolInvalidatedOnNameChange [
+	"Changing name should invalidate the cached openAIChatTool."
+
+	| client first |
+	client := ChatPharoClient
+		name: 'original'
+		description: 'test'
+		parameters: (Dictionary with: 'type' -> 'object' with: 'properties' -> Dictionary new)
+		block: [ :args | 'ok' ].
+	first := client openAIChatTool.
+	client name: 'renamed'.
+	self deny: client openAIChatTool identicalTo: first.
+	self assert: ((client openAIChatTool at: 'function') at: 'name') equals: 'renamed'
+]
+
+{ #category : 'running' }
+ChatPharoOptimizationTest >> testOpenAIChatToolInvalidatedOnParametersChange [
+	"Changing parameters should invalidate the cached openAIChatTool."
+
+	| client first |
+	client := ChatPharoClient
+		name: 'myTool'
+		description: 'test'
+		parameters: (Dictionary with: 'type' -> 'object' with: 'properties' -> Dictionary new)
+		block: [ :args | 'ok' ].
+	first := client openAIChatTool.
+	client parameters: (Dictionary with: 'type' -> 'object' with: 'properties' -> (Dictionary with: 'x' -> 'string')).
+	self deny: client openAIChatTool identicalTo: first
+]
+
+{ #category : 'running' }
+ChatPharoOptimizationTest >> testOpenAIChatToolIsCached [
+	"openAIChatTool should return the same Dictionary instance on repeated calls."
+
+	| client first second |
+	client := ChatPharoClient
+		name: 'cachedTool'
+		description: 'test'
+		parameters: (Dictionary with: 'type' -> 'object' with: 'properties' -> Dictionary new)
+		block: [ :args | 'ok' ].
+	first := client openAIChatTool.
+	second := client openAIChatTool.
+	self assert: first identicalTo: second
+]
+
+{ #category : 'running' }
 ChatPharoOptimizationTest >> testRefreshRebuildsIndexes [
 
 	registry refresh.
@@ -107,6 +231,47 @@ ChatPharoOptimizationTest >> testRegisterSkillUpdatesIndex [
 	registry registerSkill: skill.
 	self assert: (registry hasSkillNamed: 'TestSkill').
 	self assert: (registry skillNamed: 'TestSkill') identicalTo: skill
+]
+
+{ #category : 'running' }
+ChatPharoOptimizationTest >> testResolvedToolSchemasEmptyWithNoTools [
+	"resolvedToolSchemas should return an empty array when there are no tools."
+
+	| tool |
+	tool := ChatPharoTool ollamaWithSystem: 'test' tools: nil.
+	self assert: tool resolvedToolSchemas isEmpty
+]
+
+{ #category : 'running' }
+ChatPharoOptimizationTest >> testResolvedToolSchemasInvalidatedOnToolsSet [
+	"Setting tools should invalidate the cached schemas."
+
+	| tool client first |
+	client := ChatPharoClient
+		name: 'schemaTool'
+		description: 'test'
+		parameters: (Dictionary with: 'type' -> 'object' with: 'properties' -> Dictionary new)
+		block: [ :args | 'ok' ].
+	tool := ChatPharoTool ollamaWithSystem: 'test' tools: { client }.
+	first := tool resolvedToolSchemas.
+	tool tools: { client }.
+	self deny: tool resolvedToolSchemas identicalTo: first
+]
+
+{ #category : 'running' }
+ChatPharoOptimizationTest >> testResolvedToolSchemasIsCached [
+	"resolvedToolSchemas should return the same array when nothing changes."
+
+	| tool client first second |
+	client := ChatPharoClient
+		name: 'schemaTool'
+		description: 'test'
+		parameters: (Dictionary with: 'type' -> 'object' with: 'properties' -> Dictionary new)
+		block: [ :args | 'ok' ].
+	tool := ChatPharoTool ollamaWithSystem: 'test' tools: { client }.
+	first := tool resolvedToolSchemas.
+	second := tool resolvedToolSchemas.
+	self assert: first identicalTo: second
 ]
 
 { #category : 'running' }

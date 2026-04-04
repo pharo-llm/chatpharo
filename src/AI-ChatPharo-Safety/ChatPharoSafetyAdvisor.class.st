@@ -192,6 +192,16 @@ Do you agree to proceed?
 (If you are a verified developer and do not want to see this warning again, please verify your Developer ID in the Personal settings tab.)'
 ]
 
+{ #category : 'settings' }
+ChatPharoSafetyAdvisor class >> isValidMessageLimit: aNumber [
+	"A message limit must be a positive integer. Zero or negative values are
+	 forbidden because they would silently disable all conversations."
+
+	^ aNumber notNil
+		and: [ aNumber isNumber
+		and: [ aNumber >= 1 ] ]
+]
+
 { #category : 'safety' }
 ChatPharoSafetyAdvisor class >> maxIterationsMessage [
 
@@ -204,10 +214,29 @@ ChatPharoSafetyAdvisor class >> messageLimitChangeMessage [
 	^ 'Changing the message limit will impact context performance and memory usage.\nHigher limits may slow down responses and increase token consumption.\nAre you sure you want to change this setting?'
 ]
 
+{ #category : 'settings' }
+ChatPharoSafetyAdvisor class >> noRightToSetMessageLimitMessage: aNumber [
+
+	^ 'You have no right to do that.', String cr,
+	  'The Ethics Director forbids setting the message limit to ',
+	  (aNumber ifNil: [ 'an empty value' ] ifNotNil: [ aNumber asString ]),
+	  '.', String cr,
+	  'A message limit of zero or less would disable all conversation,',
+	  ' which violates the ethics mandate. The minimum allowed value is 1.'
+]
+
 { #category : 'safety' }
 ChatPharoSafetyAdvisor class >> promptChangeMessage [ 
 
     ^ 'For optimal performance we recommend you to not change the prompt.\nAre you sure you want to modify it?'
+]
+
+{ #category : 'settings' }
+ChatPharoSafetyAdvisor class >> rejectMessageLimitOn: aPresenter for: aNumber [
+	"Show a hard rejection when the user tries to set an invalid message limit
+	 (e.g. zero). The Ethics Director denies this regardless of developer status."
+
+	aPresenter alert: (self noRightToSetMessageLimitMessage: aNumber)
 ]
 
 { #category : 'safety' }

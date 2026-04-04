@@ -20,6 +20,7 @@ Class {
 		'apiKey',
 		'model',
 		'tools',
+		'toolIndex',
 		'systemPrompt',
 		'onToolExecution',
 		'extraParameters',
@@ -331,12 +332,13 @@ ChatPharoTool >> initializeWithBaseURL: initialBaseURL apiKey: initialAPIKey sys
 	apiKey := initialAPIKey.
 	systemPrompt := initialSystem.
 	tools := initialTools.
+	toolIndex := nil.
 	onToolExecution := nil.
 	extraParameters := Dictionary new.
-	self model: self modelNames first.
+	self model: self safeDefaultModelName.
 	cachedClient := nil.
 	cachedToolSchemas := nil.
-	lastTemporalToolCount := nil.
+	lastTemporalToolCount := nil
 ]
 
 { #category : 'accessing' }
@@ -572,5 +574,6 @@ ChatPharoTool >> tools [
 ChatPharoTool >> tools: anObject [
 
 	tools := anObject.
+	toolIndex := nil.
 	cachedToolSchemas := nil
 ]

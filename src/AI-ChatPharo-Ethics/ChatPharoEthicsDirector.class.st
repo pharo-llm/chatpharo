@@ -90,6 +90,13 @@ ChatPharoEthicsDirector >> messageLimit [
 { #category : 'initialization' }
 ChatPharoEthicsDirector >> messageLimit: aNumber [
 
+	(aNumber notNil and: [ aNumber isNumber and: [ aNumber < 1 ] ]) ifTrue: [
+		ChatPharoLogger logFrontend: 'Message limit rejected (must be >= 1)'
+			details: (Dictionary new
+				at: 'attempted' put: aNumber;
+				yourself).
+		^ self error: 'Message limit must be at least 1. You have no right to set it to ' , aNumber asString , '.' ].
+	
 	messageLimit := aNumber.
 	ChatPharoLogger logFrontend: 'Message limit updated'
 		details: (Dictionary new

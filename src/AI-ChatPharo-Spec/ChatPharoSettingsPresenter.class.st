@@ -125,10 +125,10 @@ ChatPharoSettingsPresenter >> connectPresenters [
 			model browserExtensionEnabled: presenter.
 			self updateBrowserExtensionTab ].
 
-debuggerExtensionCheckBox whenChangedDo: [ :presenter |
+	debuggerExtensionCheckBox whenChangedDo: [ :presenter |
 			model debuggerExtensionEnabled: presenter.
 			self updateDebuggerExtensionTab ].
-		
+
 	icebergExtensionCheckBox whenChangedDo: [ :presenter |
 			model icebergExtensionEnabled: presenter.
 			self updateIcebergExtensionTab ].
@@ -196,14 +196,21 @@ debuggerExtensionCheckBox whenChangedDo: [ :presenter |
 					| newValue |
 					newValue := text asNumber.
 					newValue ~= model messageLimit ifTrue: [
-							ChatPharoSettings default isDeveloper
-								ifTrue: [
-										(ChatPharoSafetyAdvisor confirmMessageLimitChangeOn: self)
-											ifTrue: [ model messageLimit: newValue ]
-											ifFalse: [ messageLimitInput text: model messageLimit asString ] ]
+							(ChatPharoSafetyAdvisor isValidMessageLimit: newValue)
 								ifFalse: [
-										self alert: ChatPharoSafetyAdvisor ethicsSettingChangeMessage.
-										messageLimitInput text: model messageLimit asString ] ] ] ].
+										"Hard rejection: the Ethics Director forbids non-positive limits
+										 regardless of developer status."
+										ChatPharoSafetyAdvisor rejectMessageLimitOn: self for: newValue.
+										messageLimitInput text: model messageLimit asString ]
+								ifTrue: [
+										ChatPharoSettings default isDeveloper
+											ifTrue: [
+													(ChatPharoSafetyAdvisor confirmMessageLimitChangeOn: self)
+														ifTrue: [ model messageLimit: newValue ]
+														ifFalse: [ messageLimitInput text: model messageLimit asString ] ]
+											ifFalse: [
+													self alert: ChatPharoSafetyAdvisor ethicsSettingChangeMessage.
+													messageLimitInput text: model messageLimit asString ] ] ] ] ].
 
 
 	playgroundToolCheckBox whenChangedDo: [ :checked |
