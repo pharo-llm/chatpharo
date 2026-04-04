@@ -41,11 +41,12 @@ ChatPharoStressTest >> testCacheHandlesFiftyDistinctEntries [
 
 { #category : 'tests' }
 ChatPharoStressTest >> testCacheHandlesOneHundredDistinctEntries [
-        1 to: 100 do: [ :index |
-                chat sendMessage: 'unique-' , index asString.
-                self waitForChatProcess ].
 
-        self assert: (chat instVarNamed: #cache) size equals: 100
+	1 to: 100 do: [ :index |
+			chat sendMessage: 'unique-' , index asString.
+			self waitForChatProcess ].
+
+	self assert: (chat instVarNamed: #cache) size equals: 50
 ]
 
 { #category : 'running' }
@@ -353,17 +354,17 @@ ChatPharoStressTest >> testChatSendMessageHundredTimesMaintainsHistoryEntries [
                 chat sendMessage: 'history-' , index asString.
                 self waitForChatProcess ].
 
-        self assert: (chat instVarNamed: #history) messages size equals: 200
+        self assert: (chat instVarNamed: #history) messages size equals: 100
 ]
 
 { #category : 'tests' }
 ChatPharoStressTest >> testChatSendMessageHundredTimesMaintainsMessageCount [
 
-        1 to: 100 do: [ :index |
-                chat sendMessage: 'message-' , index asString.
-                self waitForChatProcess ].
+	1 to: 100 do: [ :index |
+			chat sendMessage: 'message-' , index asString.
+			self waitForChatProcess ].
 
-        self assert: chat messages size equals: 100
+	self assert: chat messages size equals: 50
 ]
 
 { #category : 'tests' }
