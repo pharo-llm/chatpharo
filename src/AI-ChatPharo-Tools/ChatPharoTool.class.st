@@ -171,6 +171,22 @@ ChatPharoTool class >> ollamaWithSystem: system tools: tools [
 	^ self baseURL: (ZnUrl fromString: 'http://localhost:11434/v1') system: system tools: tools
 ]
 
+{ #category : 'instance creation' }
+ChatPharoTool class >> openAIWithAPIKey: apiKey system: system [
+
+	^ self openAIWithAPIKey: apiKey system: system tools: #(  )
+]
+
+{ #category : 'instance creation' }
+ChatPharoTool class >> openAIWithAPIKey: apiKey system: system tools: tools [
+
+	^ self
+		  baseURL: (ZnUrl fromString: 'https://api.openai.com/v1')
+		  apiKey: apiKey
+		  system: system
+		  tools: tools
+]
+
 { #category : 'accessing' }
 ChatPharoTool >> apiKey [
 
