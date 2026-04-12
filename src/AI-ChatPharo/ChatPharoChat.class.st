@@ -334,6 +334,10 @@ ChatPharoChat >> importFromJson: aJsonString [
 							currentUserContent := nil ].
 					lastRole := role.
 					lastContent := content ] ].
+	currentUserContent ifNotNil: [
+			messages add: (ChatPharoMessage new
+					 content: currentUserContent;
+					 yourself) ].
 
 	ChatPharoLogger logBackend: 'Chat imported from JSON' details: (Dictionary new
 			 at: 'chatId' put: self identityHash;

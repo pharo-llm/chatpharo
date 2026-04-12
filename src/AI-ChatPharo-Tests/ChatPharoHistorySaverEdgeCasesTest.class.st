@@ -30,3 +30,15 @@ ChatPharoHistorySaverEdgeCasesTest >> testToolMessageNilContentGetsPlaceholder [
 	self assert: (toolMsg at: 'content') equals: '[No tool result]'.  ":contentReference[oaicite:5]{index=5}"
 
 ]
+
+{ #category : 'tests' }
+ChatPharoHistorySaverEdgeCasesTest >> testTrailingUserMessageNotDroppedOnImport [
+
+	| json |
+	chat := ChatPharoChat new.
+	json := '[{"role":"user","content":"hello"},{"role":"assistant","content":"hi"},{"role":"user","content":"trailing message"}]'.
+	chat importFromJson: json.
+	self assert: chat messages size equals: 2.
+	self assert: chat messages last content equals: 'trailing message'.
+	self assert: chat messages last answer isEmpty
+]
