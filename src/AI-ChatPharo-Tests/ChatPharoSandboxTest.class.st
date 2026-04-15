@@ -118,6 +118,14 @@ ChatPharoSandboxTest >> testUseDefaultsCopiesBlockedLists [
 	self assert: (sandbox blockedSelectors includes: #writeStream)
 ]
 
+{ #category : 'tests' }
+ChatPharoSandboxTest >> testValidateCodeAllowsProcessorScheduler [
+
+	| validation |
+	validation := sandbox validateCode: 'ProcessorScheduler active priority'.
+	self assert: validation isValid
+]
+
 { #category : 'running' }
 ChatPharoSandboxTest >> testValidateCodeDetectsBlockedClassReference [
 
@@ -136,6 +144,14 @@ ChatPharoSandboxTest >> testValidateCodeDetectsBlockedSelector [
 	validation := sandbox validateCode: 'Object new dangerous: 1'.
 	self assert: validation isInvalid.
 	self assert: (validation violations anySatisfy: [ :v | v includesSubstring: 'dangerous:' ])
+]
+
+{ #category : 'tests' }
+ChatPharoSandboxTest >> testValidateCodeDetectsDirectProcessorAccess [
+
+	| validation |
+	validation := sandbox validateCode: 'Processor activeProcess terminate'.
+	self assert: validation isInvalid
 ]
 
 { #category : 'running' }

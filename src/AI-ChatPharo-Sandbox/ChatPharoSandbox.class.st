@@ -410,7 +410,7 @@ ChatPharoSandbox >> validateCode: codeString [
 		 (codeString includesSubstring: 'Smalltalk snapshot') or: [
 			 (codeString includesSubstring: 'Smalltalk quit') or: [
 				 (codeString includesSubstring: 'SmalltalkImage') or: [
-					 (codeString includesSubstring: 'Processor') or: [
+					 (codeString includesSubstring: 'Processor ') or: [
 						 codeString includesSubstring: 'OSProcess' ] ] ] ] ]) ifTrue: [
 		violations add: 'System-level access is restricted' ].
 
