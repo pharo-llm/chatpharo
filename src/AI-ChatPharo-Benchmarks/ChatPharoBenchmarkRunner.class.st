@@ -283,7 +283,9 @@ ChatPharoBenchmarkRunner >> rawToolVendorFor: anAgent system: aSystemPrompt usin
 	(agentClass includesSubstring: 'Ollama') ifTrue: [
 		^ toolClass ollamaWithSystem: aSystemPrompt tools: #(  ) ].
 	"Default: local Ollama-style endpoint."
-	^ toolClass ollamaWithSystem: aSystemPrompt tools: #(  )
+	self error:
+		'Unsupported rawLLM agent class: ' , agentClass
+			, '. Use a vendor-backed agent (OpenAI/Claude/DeepSeek/Mistral/Gemini/LMStudio/Ollama).'
 ]
 
 { #category : 'running' }
@@ -323,9 +325,12 @@ ChatPharoBenchmarkRunner >> runCase: aCase [
 	startedAt := DateAndTime now.
 	result startedAt: startedAt.
 	execution := [
-		             configuration strategy = #ecosystem
-			             ifTrue: [ self executeEcosystemCaseFor: aCase ]
-			             ifFalse: [ self executeRawCaseFor: aCase ] ]
+		            self
+			             value: [
+					             configuration strategy = #ecosystem
+						             ifTrue: [ self executeEcosystemCaseFor: aCase ]
+						             ifFalse: [ self executeRawCaseFor: aCase ] ]
+			             withTimeoutSeconds: configuration timeoutSeconds ]
 		             on: Error
 		             do: [ :e |
 			             result errorMessage: e messageText.
@@ -372,14 +377,34 @@ ChatPharoBenchmarkRunner >> runParallel: aReport [
 		running := running + 1.
 		[
 			| r |
-			r := self runCase: aCase.
-			results at: index put: r.
-			semaphore signal
+			[
+				r := self runCase: aCase.
+				results at: index put: r ]
+				ensure: [ semaphore signal ]
 		] fork ].
 	[ running > 0 ] whileTrue: [
 		semaphore wait.
 		running := running - 1 ].
 	results do: [ :r | r ifNotNil: [ aReport addResult: r ] ]
+]
+
+{ #category : 'private' }
+ChatPharoBenchmarkRunner >> value: aBlock withTimeoutSeconds: timeoutSeconds [
+
+	| completed worker result error seconds timeoutMs |
+	seconds := (timeoutSeconds ifNil: [ 120 ]) asNumber max: 1.
+	timeoutMs := (seconds * 1000) asInteger.
+	completed := Semaphore new.
+	worker := [
+	          [ result := aBlock value ]
+		          on: Error
+		          do: [ :e | error := e ]
+		          ensure: [ completed signal ] ] fork.
+	(completed waitTimeoutMilliseconds: timeoutMs) ifTrue: [
+		worker terminate.
+		Error signal: 'Case execution timed out after ' , seconds asString , ' seconds' ].
+	error ifNotNil: [ Error signal: error messageText ].
+	^ result
 ]
 
 { #category : 'private' }
