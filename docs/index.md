@@ -41,6 +41,7 @@ ChatPharo is an AI coding assistant integrated into the Pharo IDE. This document
 - [Sandbox](sandbox.md)
 - [Safety & Ethics](safety-ethics.md)
 - [Director/Team (multi-agent)](director.md)
+- [Benchmarks](benchmarks.md)
 - [IDE integration](integration.md)
 - [Tutorial](tutorial.md)
 - [Troubleshooting](troubleshooting.md)
