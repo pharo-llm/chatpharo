@@ -10,6 +10,7 @@ follows automatically. Use `ChatPharoBenchmarkBuilder` to build one.
 Each case (`ChatPharoBenchmarkCase`) represents a single atomic task
 (one method to generate, one method to explain, one class to synthesise, …).
 
+
 Responsibilities
 ----------------
 * Hold metadata about provenance (source package, creation time, Pharo image
