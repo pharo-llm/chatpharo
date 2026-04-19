@@ -140,6 +140,11 @@ BaselineOfAIChatPharo >> postLoad [
 	KMRepository reset.
 	ChatPharoShortcuts installAsGlobalCategory.
 "	SystemAnnouncer uniqueInstance when: UIThemeChanged send: #loadBackgroundImage to: self class."
+	"Ensure the Spec confirmation presenter has registered itself as the
+	 gate. In fresh Metacello loads this is done by its class-side
+	 #initialize, but explicit re-registration here makes reloads safe."
+	(Smalltalk at: #ChatPharoToolConfirmationPresenter ifAbsent: [ nil ])
+		ifNotNil: [ :cls | cls initialize ].
 	self class showFirstLaunchSetupIfNeeded
 ]
 

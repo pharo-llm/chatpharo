@@ -196,7 +196,10 @@ ChatPharoChat >> clearChat [
 	self cancelMessage.
 	history clear.
 	messages removeAll.
-	self clearCache
+	self clearCache.
+	"Drop any ""always allow"" approvals the user granted during the chat
+	 so that the next conversation starts with a fresh confirmation gate."
+	ChatPharoToolConfirmation default clearSessionApprovals
 ]
 
 { #category : 'accessing' }

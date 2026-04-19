@@ -204,10 +204,20 @@ ChatPharoTool >> apiKey: anObject [
 ChatPharoTool >> applyToolFunction: functionName arguments: arguments [
 
 "Look up the tool by name using the dictionary index (O(1) instead of linear scan),
-	 then fall back to the temporal tool registry."
+	 then fall back to the temporal tool registry.
+
+	 Before actually running a mutating tool, the central confirmation gate
+	 (ChatPharoToolConfirmation) asks the user. If the user denies, the
+	 gate returns a cancellation dictionary that is fed back to the model
+	 verbatim, so the LLM sees the rejection and can adapt its plan."
 
 	| tool temporalTool |
 	onToolExecution ifNotNil: [ :blk | blk cull: functionName ].
+
+	ChatPharoToolConfirmation default
+		guardToolNamed: functionName
+		arguments: arguments
+		ifDeniedDo: [ :cancellation | ^ cancellation ].
 
 	"Try indexed tool lookup first"
 	tool := self toolIndex at: functionName ifAbsent: [ nil ].

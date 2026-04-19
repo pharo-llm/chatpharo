@@ -69,7 +69,8 @@ Class {
 		'mcpEnabled',
 		'mcpRegistry',
 		'externalApiWarningDismissed',
-		'dynamicChatNamingEnabled'
+		'dynamicChatNamingEnabled',
+		'confirmBeforeMutatingTools'
 	],
 	#classInstVars : [
 		'Default'
@@ -196,6 +197,8 @@ ChatPharoSettings class >> loadOrNew [
 						  ifNotNil: [ :cls | settings privateSetMcpRegistry: cls new ] ].
 				  settings externalApiWarningDismissed ifNil: [
 					  settings privateSetExternalApiWarningDismissed: false ].
+				  settings confirmBeforeMutatingTools ifNil: [
+					  settings privateSetConfirmBeforeMutatingTools: true ].
 				  ^ settings ]
 				  on: Error
 				  do: [ ^ self new ] ]
@@ -515,6 +518,29 @@ ChatPharoSettings >> cognitiveLoadBudget: aNumber [
 ChatPharoSettings >> commitMessageTemplate [
 
 	^ commitMessageTemplate ifNil: [ commitMessageTemplate := self defaultCommitMessageTemplate ]
+]
+
+{ #category : 'safety' }
+ChatPharoSettings >> confirmBeforeMutatingTools [
+	"Whether mutating tool calls coming from the model (create class,
+	 add method, sandbox_evaluate, ...) must be confirmed by the user
+	 before running. Default: true (safe by default)."
+
+	^ confirmBeforeMutatingTools ifNil: [ confirmBeforeMutatingTools := true ]
+]
+
+{ #category : 'safety' }
+ChatPharoSettings >> confirmBeforeMutatingTools: aBoolean [
+	"Toggle the confirmation gate for mutating tool calls."
+
+	confirmBeforeMutatingTools := aBoolean.
+	self class setDefault: self.
+	self class saveDefault.
+	ChatPharoLogger
+		logSystem: 'Tool confirmation gate toggled'
+		details: (Dictionary new
+			at: 'enabled' put: aBoolean;
+			yourself)
 ]
 
 { #category : 'accessing' }
@@ -889,6 +915,7 @@ ChatPharoSettings >> initialize [
 	memoryAutoSummarize := true.
 	mcpEnabled := false.
 	mcpRegistry := ChatPharoMCPRegistry new.
+	confirmBeforeMutatingTools := true.
 	ChatPharoLogger loggingEnabled: true.
 	ChatPharoLogger
 		logSystem: 'Settings initialized'
@@ -1237,6 +1264,12 @@ ChatPharoSettings >> privateSetEthicsDirectorEnabled: aBoolean [
 ChatPharoSettings >> privateSetEthicsMandate: aString [
 	"Set ethicsMandate without triggering save. Used during loading."
 	ethicsMandate := aString
+]
+
+{ #category : 'private' }
+ChatPharoSettings >> privateSetConfirmBeforeMutatingTools: aBoolean [
+	"Set confirmBeforeMutatingTools without triggering save. Used during loading."
+	confirmBeforeMutatingTools := aBoolean
 ]
 
 { #category : 'private' }

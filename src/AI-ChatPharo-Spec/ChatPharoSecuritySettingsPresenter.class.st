@@ -19,7 +19,8 @@ Class {
 		'restrictSystemAccessCheckBox',
 		'testButton',
 		'testResultText',
-		'statusLabel'
+		'statusLabel',
+		'confirmMutationsCheckBox'
 	],
 	#category : 'AI-ChatPharo-Spec-Core',
 	#package : 'AI-ChatPharo-Spec',
@@ -62,6 +63,15 @@ ChatPharoSecuritySettingsPresenter >> connectPresenters [
 					restrictSystemAccessCheckBox state: true.
 					^ self ] ].
 		model sandboxRestrictSystemAccess: state ].
+
+	confirmMutationsCheckBox whenChangedDo: [ :state |
+		state ifFalse: [
+			(self confirm:
+				 'Disabling the confirmation gate lets the AI create classes, add methods, and evaluate code on your image without asking. Continue?')
+				ifFalse: [
+					confirmMutationsCheckBox state: true.
+					^ self ] ].
+		model confirmBeforeMutatingTools: state ].
 
 	testButton action: [ self runSandboxTest ]
 ]
@@ -117,6 +127,12 @@ ChatPharoSecuritySettingsPresenter >> initializePresenters [
 		                               state: model sandboxRestrictSystemAccess;
 		                               yourself.
 
+	"Mutation confirmation gate"
+	confirmMutationsCheckBox := self newCheckBox
+		                            label: 'Confirm before the AI mutates the image (create class, add method, evaluate code, ...)';
+		                            state: model confirmBeforeMutatingTools;
+		                            yourself.
+
 	"Test button and result"
 	testButton := self newButton
 		              label: 'Test Sandbox';
@@ -141,6 +157,8 @@ ChatPharoSecuritySettingsPresenter >> restrictionsSection [
 		  add: restrictFileSystemCheckBox expand: false;
 		  add: restrictNetworkCheckBox expand: false;
 		  add: restrictSystemAccessCheckBox expand: false;
+		  add: (self newLabel label: 'Tool confirmation:') expand: false;
+		  add: confirmMutationsCheckBox expand: false;
 		  yourself
 ]
 
