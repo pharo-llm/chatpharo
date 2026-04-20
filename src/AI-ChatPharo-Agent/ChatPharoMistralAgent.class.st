@@ -66,6 +66,7 @@ ChatPharoMistralAgent >> getResponseForPrompt: userPrompt [
 	| api result params accIn accOut |
 	api := ChatPharoTool mistralWithAPIKey: apiKey system: self systemPrompt tools: self tools.
 	self onToolExecution ifNotNil: [ api onToolExecution: self onToolExecution ].
+	self onRetry ifNotNil: [ api onRetry: self onRetry ].
 	model ifNotEmpty: [ api model: model ].
 	params := self requestParameters copy.
 	temperature ifNotNil: [ params at: 'temperature' put: temperature ].

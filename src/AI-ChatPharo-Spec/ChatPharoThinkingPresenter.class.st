@@ -18,7 +18,9 @@ Class {
 		'detailWindow',
 		'inputTokens',
 		'outputTokens',
-		'totalTokens'
+		'totalTokens',
+		'retryAttempt',
+		'retryMax'
 	],
 	#category : 'AI-ChatPharo-Spec-Ethics',
 	#package : 'AI-ChatPharo-Spec',
@@ -107,7 +109,9 @@ ChatPharoThinkingPresenter >> initialize [
 	executedTools := OrderedCollection new.
 	inputTokens := nil.
 	outputTokens := nil.
-	totalTokens := nil
+	totalTokens := nil.
+retryAttempt := nil.
+	retryMax := nil
 ]
 
 { #category : 'initialization' }
@@ -187,13 +191,14 @@ ChatPharoThinkingPresenter >> phase: aSymbol [
 ChatPharoThinkingPresenter >> phaseText [
 
 	^ currentPhase
-		caseOf: {
-			([ #thinking ]  -> [ 'Thinking' ]).
-			([ #executing ] -> [ 'Executing tools' ]).
-			([ #analyzing ] -> [ 'Analyzing' ]).
-			([ #searching ] -> [ 'Searching code' ]).
-			([ #finished ]  -> [ 'Done' ]) }
-		otherwise: [ 'Thinking' ]
+		  caseOf: {
+				  ([ #thinking ] -> [ 'Thinking' ]).
+				  ([ #executing ] -> [ 'Executing tools' ]).
+				  ([ #analyzing ] -> [ 'Analyzing' ]).
+				  ([ #searching ] -> [ 'Searching code' ]).
+				([ #retrying ] -> [ self retryingText ]).
+				  ([ #finished ] -> [ 'Done' ]) }
+		  otherwise: [ 'Thinking' ]
 ]
 
 { #category : 'initialization' }
@@ -207,6 +212,22 @@ ChatPharoThinkingPresenter >> remainingTokenBudgetText [
 	^ (remaining max: 0) asString , ' left'
 ]
 
+{ #category : 'initialization' }
+ChatPharoThinkingPresenter >> retryAttempt: attempt of: max [
+
+	retryAttempt := attempt.
+	retryMax := max.
+	self phase: #retrying
+]
+
+{ #category : 'initialization' }
+ChatPharoThinkingPresenter >> retryingText [ 
+
+	retryAttempt ifNil: [ ^ 'Retrying' ].
+	retryMax ifNil: [ ^ 'Retrying (attempt ' , retryAttempt asString , ')' ].
+	^ 'Retrying (attempt ' , retryAttempt asString , '/' , retryMax asString , ')'
+]
+
 { #category : 'asserting' }
 ChatPharoThinkingPresenter >> shouldShowThinkingUI [
 	"Only show thinking UI if we have an agent that supports it"
@@ -216,20 +237,22 @@ ChatPharoThinkingPresenter >> shouldShowThinkingUI [
 
 { #category : 'initialization' }
 ChatPharoThinkingPresenter >> startAnimation [
-animationProcess ifNotNil: [ animationProcess terminate ].
+
+	animationProcess ifNotNil: [ animationProcess terminate ].
 	thinkingStartedAt := DateAndTime now.
 	thinkingElapsedSeconds := 0.
+	retryAttempt := nil.
+	retryMax := nil.
 	self clearExecutedTools.
 	animationProcess := [
-		| dots |
-		dots := 0.
-		[ true ] whileTrue: [
-			dots := dots + 1 \\ 4.
-			thinkingElapsedSeconds := (DateAndTime now - thinkingStartedAt) asSeconds rounded max: 0.
-			self updateButtonLabel.
-			detailWindow ifNotNil: [ :w |
-				w presenter updateDetails ].
-			(Delay forMilliseconds: 400) wait ] ] fork
+		                    | dots |
+		                    dots := 0.
+		                    [ true ] whileTrue: [
+				                    dots := dots + 1 \\ 4.
+				                    thinkingElapsedSeconds := (DateAndTime now - thinkingStartedAt) asSeconds rounded max: 0.
+				                    self updateButtonLabel.
+				                    detailWindow ifNotNil: [ :w | w presenter updateDetails ].
+				                    (Delay forMilliseconds: 400) wait ] ] fork
 ]
 
 { #category : 'initialization' }

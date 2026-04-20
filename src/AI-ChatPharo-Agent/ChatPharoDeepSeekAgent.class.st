@@ -79,8 +79,9 @@ ChatPharoDeepSeekAgent >> getResponseForPrompt: userPrompt [
 	| api result max count accIn accOut params |
 	api := ChatPharoTool deepSeekWithAPIKey: apiKey system: self systemPrompt tools: self tools.
 	self onToolExecution ifNotNil: [ api onToolExecution: self onToolExecution ].
+	self onRetry ifNotNil: [ api onRetry: self onRetry ].
 	model ifNotEmpty: [ api model: model ].
-		params := self requestParameters copy.
+	params := self requestParameters copy.
 	temperature ifNotNil: [ params at: 'temperature' put: temperature ].
 	api requestParameters: params.
 	self history ifNil: [ self history: ChatPharoHistory new ].

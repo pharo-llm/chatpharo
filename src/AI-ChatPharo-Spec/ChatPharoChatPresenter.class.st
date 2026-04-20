@@ -125,6 +125,14 @@ ChatPharoChatPresenter >> connectPresenters [
 					 at: 'chatId' put: model identityHash;
 					 at: 'toolName' put: (toolName ifNil: [ 'unknown' ]);
 					 yourself) ].
+				
+	model whenRetryDo: [ :attempt :max |
+			thinkingPresenter retryAttempt: attempt of: max.
+			ChatPharoLogger logFrontend: 'Retry attempt feedback shown' details: (Dictionary new
+					 at: 'chatId' put: model identityHash;
+					 at: 'attempt' put: attempt;
+					 at: 'max' put: max;
+					 yourself) ].
 
 	model whenErrorReceivedDo: [ :errorMessage |
 			self hideThinking.

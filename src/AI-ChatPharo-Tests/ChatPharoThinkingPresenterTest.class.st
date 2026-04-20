@@ -80,12 +80,32 @@ ChatPharoThinkingPresenterTest >> testPhaseSetterUpdatesCurrentPhase [
 	self assert: (presenter instVarNamed: #currentPhase) equals: #finished
 ]
 
+{ #category : 'tests' }
+ChatPharoThinkingPresenterTest >> testRetryAttemptSetsRetryingPhaseAndLabel [
+
+	| buttonLabel |
+	presenter retryAttempt: 2 of: 3.
+	self assert: (presenter instVarNamed: #currentPhase) equals: #retrying.
+	self assert: presenter phaseText equals: 'Retrying (attempt 2/3)'.
+	buttonLabel := (presenter instVarNamed: #thinkingButton) label.
+	self assert: (buttonLabel includesSubstring: 'Retrying (attempt 2/3)')
+]
+
 { #category : 'running' }
 ChatPharoThinkingPresenterTest >> testStartAnimationClearsExecutedTools [
 
 	presenter addExecutedTool: 'search_code'.
 	presenter startAnimation.
 	self assert: (presenter instVarNamed: #executedTools) isEmpty
+]
+
+{ #category : 'tests' }
+ChatPharoThinkingPresenterTest >> testStartAnimationClearsRetryState [
+
+	presenter retryAttempt: 1 of: 3.
+	presenter startAnimation.
+	self assert: (presenter instVarNamed: #retryAttempt) isNil.
+	self assert: (presenter instVarNamed: #retryMax) isNil
 ]
 
 { #category : 'running' }

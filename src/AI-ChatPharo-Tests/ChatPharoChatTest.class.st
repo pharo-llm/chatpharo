@@ -359,6 +359,28 @@ ChatPharoChatTest >> testToolExecutionCallbackTriggered [
 ]
 
 { #category : 'running' }
+ChatPharoChatTest >> testTriggerRetryFiresRegisteredBlock [
+
+	| attempts maxes |
+	attempts := OrderedCollection new.
+	maxes := OrderedCollection new.
+	chat whenRetryDo: [ :attempt :max |
+		attempts add: attempt.
+		maxes add: max ].
+	chat triggerRetry: 1 of: 3.
+	chat triggerRetry: 2 of: 3.
+	self assert: attempts asArray equals: #( 1 2 ).
+	self assert: maxes asArray equals: #( 3 3 )
+]
+
+{ #category : 'running' }
+ChatPharoChatTest >> testTriggerRetryWithoutHandlerDoesNothing [
+
+	"Must not raise when no retry handler is registered."
+	chat triggerRetry: 1 of: 3
+]
+
+{ #category : 'running' }
 ChatPharoChatTest >> testWelcomeMessageHasContentAndLabel [
 
     | chatWithWelcome firstMessage |

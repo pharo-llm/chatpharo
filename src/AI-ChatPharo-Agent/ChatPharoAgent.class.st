@@ -26,7 +26,8 @@ Class {
 		'onToolExecution',
 		'maxTokens',
 		'topP',
-		'customParameters'
+		'customParameters',
+		'onRetry'
 	],
 	#category : 'AI-ChatPharo-Agent',
 	#package : 'AI-ChatPharo-Agent'
@@ -143,6 +144,7 @@ ChatPharoAgent >> initialize [
 	onToolExecution := nil.
 	maxTokens := nil.
 	topP := nil.
+	onRetry := nil.
 	customParameters := Dictionary new
 ]
 
@@ -180,6 +182,18 @@ ChatPharoAgent >> model: anObject [
 ChatPharoAgent >> modelInformation [ 
 
 	self subclassResponsibility
+]
+
+{ #category : 'initialization' }
+ChatPharoAgent >> onRetry [
+
+        ^ onRetry
+]
+
+{ #category : 'initialization' }
+ChatPharoAgent >> onRetry: aBlock [
+
+        onRetry := aBlock
 ]
 
 { #category : 'accessing' }

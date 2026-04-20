@@ -92,6 +92,7 @@ ChatPharoLMStudioAgent >> getResponseForPrompt: userPrompt [
 		       system: self systemPrompt
 		       tools: self tools.
 	self onToolExecution ifNotNil: [ api onToolExecution: self onToolExecution ].
+	self onRetry ifNotNil: [ api onRetry: self onRetry ].
 	model ifNotEmpty: [ api model: model ].
 	params := self requestParameters copy.
 	temperature ifNotNil: [ params at: 'temperature' put: temperature ].
@@ -99,7 +100,7 @@ ChatPharoLMStudioAgent >> getResponseForPrompt: userPrompt [
 	self history ifNil: [ self history: ChatPharoHistory new ].
 	self history addMessage: (ChatPharoHistorySaver role: 'user' content: userPrompt).
 	result := api getResponseForHistory: self history.
-	self history addMessage: result. 
+	self history addMessage: result.
 	accIn := result inputTokens ifNil: [ 0 ].
 	accOut := result outputTokens ifNil: [ 0 ].
 	[ result toolCalls isEmptyOrNil not ] whileTrue: [

@@ -93,6 +93,7 @@ ChatPharoGeminiAgent >> getResponseForPrompt: userPrompt [
 	| api result max count params accIn accOut |
 	api := ChatPharoTool geminiWithAPIKey: apiKey system: self systemPrompt tools: self tools.
 	self onToolExecution ifNotNil: [ api onToolExecution: self onToolExecution ].
+	self onRetry ifNotNil: [ api onRetry: self onRetry ].
 	model ifNotEmpty: [ api model: model ].
 	params := self requestParameters copy.
 	temperature ifNotNil: [ params at: 'temperature' put: temperature ].

@@ -31,7 +31,8 @@ Class {
 		'onErrorReceived',
 		'onNewChatRequested',
 		'onTitleGenerated',
-		'titleGenerated'
+		'titleGenerated',
+		'onRetry'
 	],
 	#category : 'AI-ChatPharo',
 	#package : 'AI-ChatPharo'
@@ -344,6 +345,7 @@ ChatPharoChat >> initialize [
 	onChatReset := nil.
 	cache := Dictionary new.
 	titleGenerated := false.
+	onRetry := nil.
 	ChatPharoSettings default welcomeMessageEnabled ifTrue: [ self addWelcomeMessage ]
 ]
 
@@ -493,8 +495,7 @@ ChatPharoChat >> resetConversation [
 ChatPharoChat >> sendMessage: aText [
 
 	| answer multivers promptWithMemory historyPrefix combinedPrefix |
-	self messageLimitReached ifTrue: [
-		^ self reportMessageLimitReached ].
+	self messageLimitReached ifTrue: [ ^ self reportMessageLimitReached ].
 	self addUserMessage: aText.
 
 	(cache includesKey: aText) ifTrue: [
@@ -509,6 +510,7 @@ ChatPharoChat >> sendMessage: aText [
 			                 | backend |
 			                 backend := self agent.
 			                 backend onToolExecution: [ :toolName | self triggerToolExecution: toolName ].
+			backend onRetry: [ :attempt :max | self triggerRetry: attempt of: max ].
 			                 promptWithMemory := self buildPromptPrefixWithMemoryFor: aText.
 
 			                 backend promptPrefix: promptWithMemory.
@@ -529,8 +531,7 @@ ChatPharoChat >> sendMessage: aText [
 ChatPharoChat >> sendMessage: aText withAttachments: attachmentCollection [
 
 	| answer multivers promptWithMemory textWithAttachments |
-		self messageLimitReached ifTrue: [
-		^ self reportMessageLimitReached ].
+	self messageLimitReached ifTrue: [ ^ self reportMessageLimitReached ].
 	self addUserMessage: aText withAttachments: attachmentCollection.
 	textWithAttachments := aText.
 	attachmentCollection ifNotEmpty: [
@@ -572,6 +573,7 @@ ChatPharoChat >> sendMessage: aText withAttachments: attachmentCollection [
 			                 | backend |
 			                 backend := self agent.
 			                 backend onToolExecution: [ :toolName | self triggerToolExecution: toolName ].
+			backend onRetry: [ :attempt :max | self triggerRetry: attempt of: max ].
 			                 promptWithMemory := self buildPromptPrefixWithMemoryFor: textWithAttachments.
 			                 backend promptPrefix: promptWithMemory.
 			                 answer := backend getResponseForPrompt: textWithAttachments.
@@ -653,6 +655,12 @@ ChatPharoChat >> summarizeConversationToMemory [
 ]
 
 { #category : 'running' }
+ChatPharoChat >> triggerRetry: attempt of: max [
+
+	onRetry ifNotNil: [ :blk | blk cull: attempt cull: max ]
+]
+
+{ #category : 'running' }
 ChatPharoChat >> triggerToolExecution [
 
 	self triggerToolExecution: nil
@@ -692,6 +700,12 @@ ChatPharoChat >> whenErrorReceivedDo: aBlock [
 ChatPharoChat >> whenNewChatRequestedDo: aBlock [ 
 
 	onNewChatRequested := aBlock
+]
+
+{ #category : 'running' }
+ChatPharoChat >> whenRetryDo: aBlock [
+
+        onRetry := aBlock
 ]
 
 { #category : 'enumerating' }

@@ -27,7 +27,8 @@ Class {
 		'extraHeaders',
 		'cachedClient',
 		'cachedToolSchemas',
-		'lastTemporalToolCount'
+		'lastTemporalToolCount',
+		'onRetry'
 	],
 	#category : 'AI-ChatPharo-Tools-Core',
 	#package : 'AI-ChatPharo-Tools',
@@ -363,17 +364,13 @@ ChatPharoTool >> getResponseForHistory: history [
 	httpClient := self cachedClient.
 	startedAt := DateAndTime now.
 	response := [
-		            httpClient
-			            resetEntity;
-			            entity: (ZnEntity json: (self jsonStringFor: (self normalizeForJson: data)));
-			            timeout: self requestTimeoutSeconds;
-			            post;
-			            response ] ensure: [
+		           self
+			            postEntity: (ZnEntity json: (self jsonStringFor: (self normalizeForJson: data)))
+			            withClient: httpClient ] ensure: [
 			            elapsedSeconds := (DateAndTime now - startedAt) asSeconds.
 			            director := ChatPharoSettings default ethicsDirector.
 			            director ifNotNil: [ director lastRequestDurationSeconds: elapsedSeconds ] ].
-	response isSuccess ifFalse: [
-Error signal: (self friendlyErrorMessageFor: response) ].
+	response isSuccess ifFalse: [ Error signal: (self friendlyErrorMessageFor: response) ].
 	message := ((STONJSON fromString: response contents) at: 'choices') first at: 'message'.
 	toolCalls := self toolCallsFromMessage: message.
 	thinkingText := nil.
@@ -416,6 +413,7 @@ ChatPharoTool >> initializeWithBaseURL: initialBaseURL apiKey: initialAPIKey sys
 	tools := initialTools.
 	toolIndex := nil.
 	onToolExecution := nil.
+	onRetry := nil.
 	extraParameters := Dictionary new.
 	self model: self safeDefaultModelName.
 	cachedClient := nil.
@@ -423,11 +421,26 @@ ChatPharoTool >> initializeWithBaseURL: initialBaseURL apiKey: initialAPIKey sys
 	lastTemporalToolCount := nil
 ]
 
+{ #category : 'initialization' }
+ChatPharoTool >> isRetryableStatus: status [
+
+	status ifNil: [ ^ false ].
+	status = 408 ifTrue: [ ^ true ].
+	status = 429 ifTrue: [ ^ true ].
+	^ status >= 500 and: [ status < 600 ]
+]
+
 { #category : 'accessing' }
 ChatPharoTool >> jsonStringFor: anObject [
 	"Serialize JSON while ignoring shared reference warnings."
 
 	^ STONJSON toString: anObject
+]
+
+{ #category : 'initialization' }
+ChatPharoTool >> maxRetries [
+
+	^ 3
 ]
 
 { #category : 'accessing' }
@@ -475,6 +488,24 @@ ChatPharoTool >> normalizeForJson: anObject [
 	^ anObject asString
 ]
 
+{ #category : 'initialization' }
+ChatPharoTool >> notifyRetryAttempt: attempt of: max [
+
+	onRetry ifNotNil: [ :blk | blk cull: attempt cull: max ]
+]
+
+{ #category : 'initialization' }
+ChatPharoTool >> onRetry [
+
+	^ onRetry
+]
+
+{ #category : 'initialization' }
+ChatPharoTool >> onRetry: aBlock [
+
+	onRetry := aBlock
+]
+
 { #category : 'accessing' }
 ChatPharoTool >> onToolExecution [ 
 
@@ -485,6 +516,33 @@ ChatPharoTool >> onToolExecution [
 ChatPharoTool >> onToolExecution: aBlock [ 
 
         onToolExecution := aBlock
+]
+
+{ #category : 'initialization' }
+ChatPharoTool >> postEntity: entity withClient: httpClient [
+
+	| maxRetries attempt response |
+	maxRetries := self maxRetries.
+	attempt := 0.
+	[
+		response := nil.
+		[
+			httpClient
+				resetEntity;
+				entity: entity;
+				timeout: self requestTimeoutSeconds;
+				post.
+			response := httpClient response
+		] on: NetworkError do: [ :ex |
+			attempt >= maxRetries ifTrue: [ ex pass ].
+			response := nil ].
+		(response notNil and: [ (self isRetryableStatus: response status) not ])
+			ifTrue: [ ^ response ].
+		attempt >= maxRetries ifTrue: [ ^ response ].
+		attempt := attempt + 1.
+		self notifyRetryAttempt: attempt of: maxRetries.
+		(Delay forSeconds: (self retryDelaySecondsForAttempt: attempt)) wait
+	] repeat
 ]
 
 { #category : 'initialization' }
@@ -523,6 +581,12 @@ ChatPharoTool >> resolvedToolSchemas [
 			                     tools ifNotNil: [ tools do: [ :t | stream nextPut: t openAIChatTool ] ].
 			                     ChatPharoTemporalToolRegistry current tools do: [ :t | stream nextPut: t openAIChatTool ] ].
 	^ cachedToolSchemas
+]
+
+{ #category : 'initialization' }
+ChatPharoTool >> retryDelaySecondsForAttempt: attempt [
+
+	^ 1 bitShift: attempt - 1
 ]
 
 { #category : 'initialization' }

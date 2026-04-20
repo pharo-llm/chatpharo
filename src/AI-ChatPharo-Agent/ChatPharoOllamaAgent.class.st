@@ -197,6 +197,7 @@ ChatPharoOllamaAgent >> getResponseForPrompt: userPrompt [
 	| api result params accIn accOut |
 	api := ChatPharoTool ollamaWithSystem: self systemPrompt tools: self tools.
 	self onToolExecution ifNotNil: [ api onToolExecution: self onToolExecution ].
+	self onRetry ifNotNil: [ api onRetry: self onRetry ].
 	model ifNotEmpty: [ api model: model ].
 	params := self requestParameters copy.
 	temperature ifNotNil: [ params at: 'temperature' put: temperature ].
@@ -204,7 +205,7 @@ ChatPharoOllamaAgent >> getResponseForPrompt: userPrompt [
 	self history ifNil: [ self history: ChatPharoHistory new ].
 	self history addMessage: (ChatPharoHistorySaver role: 'user' content: userPrompt).
 	result := api getResponseForHistory: self history.
-	self history addMessage: result. 
+	self history addMessage: result.
 	accIn := result inputTokens ifNil: [ 0 ].
 	accOut := result outputTokens ifNil: [ 0 ].
 
@@ -214,7 +215,7 @@ ChatPharoOllamaAgent >> getResponseForPrompt: userPrompt [
 			result := api getResponseForHistory: self history.
 			self history addMessage: result.
 			result inputTokens ifNotNil: [ :v | accIn := accIn + v ].
-			result outputTokens ifNotNil: [ :v | accOut := accOut + v ] ]. 
+			result outputTokens ifNotNil: [ :v | accOut := accOut + v ] ].
 	result inputTokens: accIn.
 	result outputTokens: accOut.
 	result totalTokens: accIn + accOut.
