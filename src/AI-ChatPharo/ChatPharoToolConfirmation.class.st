@@ -38,7 +38,8 @@ Class {
 	#superclass : 'Object',
 	#instVars : [
 		'gate',
-		'sessionAllowList'
+		'sessionAllowList',
+		'sessionDenyList'
 	],
 	#classInstVars : [
 		'Default'
@@ -113,7 +114,8 @@ ChatPharoToolConfirmation >> cancellationPayloadFor: aToolName reason: aString [
 { #category : 'public' }
 ChatPharoToolConfirmation >> clearSessionApprovals [
 
-	self sessionAllowList removeAll
+	self sessionAllowList removeAll.
+	self sessionDenyList removeAll
 ]
 
 { #category : 'public' }
@@ -148,11 +150,18 @@ ChatPharoToolConfirmation >> guardToolNamed: aToolName arguments: anArguments if
 	| decision |
 	self isEnabled ifFalse: [ ^ self ].
 	(self isMutatingTool: aToolName) ifFalse: [ ^ self ].
+	(self isDeniedForSession: aToolName) ifTrue: [
+		^ aBlock value: (self
+				  cancellationPayloadFor: aToolName
+				  reason: 'This tool was denied earlier with ''do not ask again'' for this chat.') ].
 	(self isApprovedForSession: aToolName) ifTrue: [ ^ self ].
 
 	decision := self confirmToolNamed: aToolName arguments: anArguments.
 
 	decision isAlways ifTrue: [ self sessionAllowList add: aToolName ].
+	decision isAlwaysDeny ifTrue: [
+		self sessionDenyList add: aToolName.
+		^ aBlock value: (self cancellationPayloadFor: aToolName reason: decision reason) ].
 	decision isAllow ifTrue: [ ^ self ].
 
 	^ aBlock value: (self cancellationPayloadFor: aToolName reason: decision reason)
@@ -163,13 +172,20 @@ ChatPharoToolConfirmation >> initialize [
 
 	super initialize.
 	gate := nil.
-	sessionAllowList := Set new
+	sessionAllowList := Set new.
+	sessionDenyList := Set new
 ]
 
 { #category : 'testing' }
 ChatPharoToolConfirmation >> isApprovedForSession: aToolName [
 
 	^ self sessionAllowList includes: aToolName
+]
+
+{ #category : 'testing' }
+ChatPharoToolConfirmation >> isDeniedForSession: aToolName [
+
+	^ self sessionDenyList includes: aToolName
 ]
 
 { #category : 'testing' }
@@ -204,6 +220,12 @@ ChatPharoToolConfirmation >> renderArgumentValue: aValue [
 ChatPharoToolConfirmation >> sessionAllowList [
 
 	^ sessionAllowList ifNil: [ sessionAllowList := Set new ]
+]
+
+{ #category : 'accessing' }
+ChatPharoToolConfirmation >> sessionDenyList [
+
+	^ sessionDenyList ifNil: [ sessionDenyList := Set new ]
 ]
 
 { #category : 'private' }

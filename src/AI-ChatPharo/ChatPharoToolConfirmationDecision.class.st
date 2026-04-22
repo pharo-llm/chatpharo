@@ -44,6 +44,15 @@ ChatPharoToolConfirmationDecision class >> deny [
 ]
 
 { #category : 'instance creation' }
+ChatPharoToolConfirmationDecision class >> denyAlwaysWithReason: aString [
+
+	^ self new
+		  outcome: #denyAlways;
+		  reason: aString;
+		  yourself
+]
+
+{ #category : 'instance creation' }
 ChatPharoToolConfirmationDecision class >> denyWithReason: aString [
 
 	"IMPLEMNENT WHY AS REASON from the human"
@@ -66,9 +75,15 @@ ChatPharoToolConfirmationDecision >> isAlways [
 ]
 
 { #category : 'testing' }
+ChatPharoToolConfirmationDecision >> isAlwaysDeny [
+
+	^ outcome = #denyAlways
+]
+
+{ #category : 'testing' }
 ChatPharoToolConfirmationDecision >> isDeny [
 
-	^ outcome = #deny
+	^ outcome = #deny or: [ outcome = #denyAlways ]
 ]
 
 { #category : 'accessing' }

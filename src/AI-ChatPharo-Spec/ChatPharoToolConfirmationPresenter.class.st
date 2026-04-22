@@ -39,6 +39,7 @@ Class {
 		'allowButton',
 		'alwaysButton',
 		'denyButton',
+		'rememberChoiceCheckBox',
 		'decision'
 	],
 	#category : 'AI-ChatPharo-Spec-Confirmation',
@@ -140,7 +141,9 @@ ChatPharoToolConfirmationPresenter class >> runConfirmationFor: aToolName argume
 { #category : 'actions' }
 ChatPharoToolConfirmationPresenter >> accept [
 
-	decision := ChatPharoToolConfirmationDecision allow.
+	decision := rememberChoiceCheckBox state
+		            ifTrue: [ ChatPharoToolConfirmationDecision always ]
+		            ifFalse: [ ChatPharoToolConfirmationDecision allow ].
 	self closeWindow
 ]
 
@@ -217,6 +220,7 @@ ChatPharoToolConfirmationPresenter >> defaultLayout [
 		  add: descriptionText expand: false;
 		  add: 'Arguments' expand: false;
 		  add: argumentsTable;
+		  add: rememberChoiceCheckBox expand: false;
 		  add: (SpBoxLayout newLeftToRight
 				   spacing: 10;
 				   addLast: denyButton expand: false;
@@ -269,6 +273,11 @@ ChatPharoToolConfirmationPresenter >> initializePresenters [
 		icon: (self iconNamed: #glamorousSpawn);
 		yourself.
 
+	rememberChoiceCheckBox := self newCheckBox
+		label: 'Do not ask again in this chat';
+		state: false;
+		yourself.
+
 	denyButton := self newButton
 		label: 'Deny';
 		icon: (self iconNamed: #smallCancel);
@@ -299,8 +308,13 @@ ChatPharoToolConfirmationPresenter >> openModalDialog [
 { #category : 'actions' }
 ChatPharoToolConfirmationPresenter >> reject [
 
-	decision := ChatPharoToolConfirmationDecision
-		denyWithReason: 'The user denied the tool call from the confirmation dialog.'.
+	decision := rememberChoiceCheckBox state
+		            ifTrue: [
+			            ChatPharoToolConfirmationDecision
+				            denyAlwaysWithReason: 'The user denied this tool and selected "do not ask again" for this chat.' ]
+		            ifFalse: [
+			            ChatPharoToolConfirmationDecision
+				            denyWithReason: 'The user denied the tool call from the confirmation dialog.' ].
 	self closeWindow
 ]
 
