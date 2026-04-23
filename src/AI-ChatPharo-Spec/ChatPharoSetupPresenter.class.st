@@ -216,11 +216,16 @@ ChatPharoSetupPresenter >> handleWelcomeConfigureLater [
 { #category : 'layout' }
 ChatPharoSetupPresenter >> handleWelcomeContinue [
 
-
-privacyConsentCheckbox state
-		ifTrue: [ self showDeveloperStep ]
+	privacyConsentCheckbox state
+		ifTrue: [
+				ChatPharoLogger logSystem: 'User privacy consent registered' details: (Dictionary new
+						 at: 'consentGiven' put: true;
+						 at: 'timestamp' put: DateAndTime now printString;
+						 yourself).
+				self showDeveloperStep ]
 		ifFalse: [
-			self inform: 'You cannot use our tools without accepting the privacy and setup concerns. Please contact us and tell us what does not work for you.' ]
+				self inform:
+					'You cannot use our tools without accepting the privacy and setup concerns. Please contact us and tell us what does not work for you.' ]
 ]
 
 { #category : 'initialization' }
