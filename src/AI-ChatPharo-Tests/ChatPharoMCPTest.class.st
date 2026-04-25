@@ -182,7 +182,7 @@ ChatPharoMCPTest >> testMCPRegistryServersSette [
 ChatPharoMCPTest >> testMCPResourceCreation [
 
 	| resource |
-	resource := ChatPharoMCPResource new
+	resource := McpResource new
 		            uri: 'file:///test.txt';
 		            name: 'Test File';
 		            description: 'A test file';
@@ -199,24 +199,11 @@ ChatPharoMCPTest >> testMCPResourceCreation [
 ChatPharoMCPTest >> testMCPResourceDefaults [
 
 	| resource |
-	resource := ChatPharoMCPResource new.
-	self assert: resource uri equals: ''.
-	self assert: resource name equals: ''.
-	self assert: resource description equals: ''.
-	self assert: resource mimeType equals: 'text/plain'.
-	self assert: resource server isNil
-]
-
-{ #category : 'running' }
-ChatPharoMCPTest >> testMCPResourceFetchWithDisconnectedServerRaisesError [
-
-	| resource |
-	resource := ChatPharoMCPResource new
-		uri: 'file:///test.txt';
-		server: server;
-		yourself.
-
-	self should: [ resource fetch ] raise: Error
+	resource := McpResource new.
+	self assert: resource uri isNil.
+	self assert: resource name isNil.
+	self assert: resource description isNil.
+	self assert: resource mimeType isNil.
 ]
 
 { #category : 'running' }
@@ -242,27 +229,11 @@ ChatPharoMCPTest >> testMCPServerConfiguration [
 ]
 
 { #category : 'running' }
-ChatPharoMCPTest >> testMCPServerConnectWhenAlreadyConnected [
-
-	"Simulate already connected state to test guard clause"
-	server status: #connected.
-	server connect.
-	"Should return immediately without error"
-	self assert: server isConnected
-]
-
-{ #category : 'running' }
-ChatPharoMCPTest >> testMCPServerConnectionTimeNilByDefault [
-
-	self assert: server connectionTime isNil
-]
-
-{ #category : 'running' }
 ChatPharoMCPTest >> testMCPServerCreation [
 
 	self assert: server name equals: 'Unnamed Server'.
 	self assert: server enabled.
-	self assert: server status equals: #disconnected.
+	self assert: server isDisconnected.
 	self assert: server tools isEmpty.
 	self assert: server resources isEmpty.
 	self assert: server prompts isEmpty
@@ -271,8 +242,9 @@ ChatPharoMCPTest >> testMCPServerCreation [
 { #category : 'running' }
 ChatPharoMCPTest >> testMCPServerDisconnectWhenNotConnected [
 
-	"Should not fail when disconnecting a non-connected server"
-	server disconnect
+    self assert: server isDisconnected.
+    server disconnect.
+    self assert: server isDisconnected
 ]
 
 { #category : 'running' }
@@ -284,36 +256,6 @@ ChatPharoMCPTest >> testMCPServerEnvironmentVariables [
 
 	self assert: (server environment at: 'API_KEY') equals: 'test-key'.
 	self assert: (server environment at: 'PORT') equals: '3000'
-]
-
-{ #category : 'running' }
-ChatPharoMCPTest >> testMCPServerLastError [
-
-	self assert: server lastError equals: ''
-]
-
-{ #category : 'running' }
-ChatPharoMCPTest >> testMCPServerStatus [
-
-	self assert: server isDisconnected.
-	self deny: server isConnected.
-	self deny: server isConnecting.
-	self deny: server isError
-]
-
-{ #category : 'running' }
-ChatPharoMCPTest >> testMCPServerStatusText [
-
-	self assert: server statusText equals: 'Disconnected'.
-
-	server status: #connecting.
-	self assert: server statusText equals: 'Connecting...'.
-
-	server status: #connected.
-	self assert: server statusText equals: 'Connected'.
-
-	server status: #error.
-	self assert: (server statusText includesSubstring: 'Error')
 ]
 
 { #category : 'running' }
@@ -346,26 +288,10 @@ ChatPharoMCPTest >> testMCPSettingsToolsAsClients [
 ]
 
 { #category : 'running' }
-ChatPharoMCPTest >> testMCPToolAsClient [
-
-	| tool client |
-	tool := ChatPharoMCPTool new
-		        name: 'test_tool';
-		        description: 'A test tool';
-		        server: server;
-		        yourself.
-
-	client := tool asChatPharoClient.
-
-	self assert: client name equals: 'test_tool'.
-	self assert: client description equals: 'A test tool'
-]
-
-{ #category : 'running' }
 ChatPharoMCPTest >> testMCPToolCreation [
 
 	| tool |
-	tool := ChatPharoMCPTool new
+	tool := McpTool new
 		        name: 'test_tool';
 		        description: 'A test tool';
 		        inputSchema: (Dictionary new
@@ -382,32 +308,10 @@ ChatPharoMCPTest >> testMCPToolCreation [
 ChatPharoMCPTest >> testMCPToolDefaults [
 
 	| tool |
-	tool := ChatPharoMCPTool new.
-	self assert: tool name equals: ''.
-	self assert: tool description equals: ''.
-	self assert: tool inputSchema isDictionary.
-	self assert: tool server isNil
-]
-
-{ #category : 'running' }
-ChatPharoMCPTest >> testMCPToolExecuteWithDisconnectedServerRaisesError [
-
-	| tool |
-	tool := ChatPharoMCPTool new
-		name: 'test_tool';
-		server: server;
-		yourself.
-
-	self should: [ tool executeWithArguments: Dictionary new ] raise: Error
-]
-
-{ #category : 'running' }
-ChatPharoMCPTest >> testMCPToolServerAssignment [
-
-	| tool |
-	tool := ChatPharoMCPTool new.
-	tool server: server.
-	self assert: tool server equals: server
+	tool := McpTool new.
+	self assert: tool name isNil.
+	self assert: tool description isNil.
+	self assert: tool inputSchema isNil.
 ]
 
 { #category : 'running' }
@@ -422,47 +326,37 @@ ChatPharoMCPTest >> testMCPToolsFlowToAgents [
 	previousDefault := ChatPharoSettings default.
 	[
 		testSettings := ChatPharoSettings new.
-		ChatPharoSettings setDefault: testSettings.
-
-		"Build a fake MCP server that reports as connected with one tool — no
+		ChatPharoSettings setDefault: testSettings. "Build a fake MCP server that reports as connected with one tool — no
 		subprocess is started so the test stays hermetic."
-		fakeTool := ChatPharoMCPTool new
-			name: 'codex_exec';
-			description: 'Run a Codex prompt';
-			yourself.
+		fakeTool := McpTool
+			            name: 'codex_exec'
+			            description: 'Run a Codex prompt'
+			            handler: [ :args | McpToolResult text: '' ].
 		fakeServer := ChatPharoMCPServer new
-			name: 'Codex CLI';
-			command: 'codex';
-			arguments: #( 'mcp' );
-			enabled: false;
-			yourself.
-		fakeServer status: #connected.
-		fakeTool server: fakeServer.
+			              name: 'Codex CLI';
+			              command: 'codex';
+			              arguments: #( 'mcp' );
+			              enabled: false;
+			              yourself.
+
 		fakeServer tools add: fakeTool.
-		testSettings mcpRegistry addServer: fakeServer.
-		"Use the private setter to avoid the disk write that mcpEnabled: triggers."
-		testSettings privateSetMcpEnabled: true.
-
-		"Sanity check: settings exposes the MCP tool as a client."
+		fakeServer mcpServer: McpServer new.
+		testSettings mcpRegistry addServer: fakeServer. "Use the private setter to avoid the disk write that mcpEnabled: triggers."
+		testSettings privateSetMcpEnabled: true. "Sanity check: settings exposes the MCP tool as a client."
 		self assert: testSettings mcpToolsAsClients size equals: 1.
-		self
-			assert: testSettings mcpToolsAsClients first name
-			equals: 'codex_exec'.
-
-		"Every agent class must surface MCP tools through its tools method."
+		self assert: testSettings mcpToolsAsClients first name equals: 'codex_exec'. "Every agent class must surface MCP tools through its tools method."
 		agentClasses := {
-			ChatPharoOpenAIAgent.
-			ChatPharoClaudeAgent.
-			ChatPharoMistralAgent.
-			ChatPharoGeminiAgent.
-			ChatPharoOllamaAgent.
-			ChatPharoDeepSeekAgent.
-			ChatPharoLMStudioAgent }.
+			                ChatPharoOpenAIAgent.
+			                ChatPharoClaudeAgent.
+			                ChatPharoMistralAgent.
+			                ChatPharoGeminiAgent.
+			                ChatPharoOllamaAgent.
+			                ChatPharoDeepSeekAgent.
+			                ChatPharoLMStudioAgent }.
 		agentClasses do: [ :cls |
-			| agent |
-			agent := cls new.
-			self
-				assert: (agent tools anySatisfy: [ :t | t name = 'codex_exec' ])
-				description: cls name , ' must expose MCP tools to the LLM' ] ]
-		ensure: [ ChatPharoSettings setDefault: previousDefault ]
+				| agent |
+				agent := cls new.
+				self
+					assert: (agent tools anySatisfy: [ :t | t name = 'codex_exec' ])
+					description: cls name , ' must expose MCP tools to the LLM' ] ] ensure: [ ChatPharoSettings setDefault: previousDefault ]
 ]

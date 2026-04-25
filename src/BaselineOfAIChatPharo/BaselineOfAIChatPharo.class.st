@@ -99,10 +99,7 @@ BaselineOfAIChatPharo >> baseline: spec [
 			spec postLoadDoIt: #postLoad.
 			spec baseline: 'PharoLLMIcon' with: [ spec repository: 'github://pharo-llm/pharo-llm-icon:main/src' ].
 			spec baseline: 'NeoJSON' with: [ spec repository: 'github://svenvc/NeoJSON/repository' ].
-			spec baseline: 'OSSubprocess'
-    with: [
-        spec repository: 'github://pharo-contributions/OSSubprocess:master/repository'
-    ].
+			spec baseline: 'LLMPharoMCP' with: [ spec repository: 'github://pharo-llm/pharo-mcp:main/src' ].
 
 			spec package: 'AI-ChatPharo'.
 			spec package: 'AI-ChatPharo-Agent' with: [ spec requires: #( 'AI-ChatPharo' ) ].
@@ -118,12 +115,11 @@ BaselineOfAIChatPharo >> baseline: spec [
 			spec package: 'AI-ChatPharo-Ethics' with: [ spec requires: #( 'AI-ChatPharo' ) ].
 			spec package: 'AI-ChatPharo-Memory' with: [ spec requires: #( 'AI-ChatPharo' ) ].
 			spec package: 'AI-ChatPharo-Director' with: [ spec requires: #( 'AI-ChatPharo' ) ].
-			spec package: 'AI-ChatPharo-MCP' with: [ spec requires: #( 'AI-ChatPharo' ) ].
-			spec package: 'AI-ChatPharo-Benchmarks' with: [
-					spec requires:
-						#( 'AI-ChatPharo' 'AI-ChatPharo-Agent' 'AI-ChatPharo-Tools' 'AI-ChatPharo-History' ) ].
-			spec package: 'AI-ChatPharo-Benchmarks-Tests' with: [
-					spec requires: #( 'AI-ChatPharo-Benchmarks' ) ].
+			spec package: 'AI-ChatPharo-MCP' with: [ spec requires: #( 'AI-ChatPharo' 'LLMPharoMCP' ) ].
+			spec
+				package: 'AI-ChatPharo-Benchmarks'
+				with: [ spec requires: #( 'AI-ChatPharo' 'AI-ChatPharo-Agent' 'AI-ChatPharo-Tools' 'AI-ChatPharo-History' ) ].
+			spec package: 'AI-ChatPharo-Benchmarks-Tests' with: [ spec requires: #( 'AI-ChatPharo-Benchmarks' ) ].
 			spec package: 'AI-ChatPharo-Tests' with: [
 					spec requires:
 						#( 'AI-ChatPharo' 'AI-ChatPharo-Agent' 'AI-ChatPharo-Spec' 'AI-ChatPharo-Tools' 'AI-ChatPharo-History'
