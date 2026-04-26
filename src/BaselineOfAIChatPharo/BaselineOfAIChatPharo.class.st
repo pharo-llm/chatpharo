@@ -100,6 +100,7 @@ BaselineOfAIChatPharo >> baseline: spec [
 			spec baseline: 'PharoLLMIcon' with: [ spec repository: 'github://pharo-llm/pharo-llm-icon:main/src' ].
 			spec baseline: 'NeoJSON' with: [ spec repository: 'github://svenvc/NeoJSON/repository' ].
 			spec baseline: 'LLMPharoMCP' with: [ spec repository: 'github://pharo-llm/pharo-mcp:main/src' ].
+			spec baseline: 'LLMPharoACP' with: [ spec repository: 'github://pharo-llm/pharo-acp:main/src' ].
 
 			spec package: 'AI-ChatPharo'.
 			spec package: 'AI-ChatPharo-Agent' with: [ spec requires: #( 'AI-ChatPharo' ) ].
@@ -116,6 +117,7 @@ BaselineOfAIChatPharo >> baseline: spec [
 			spec package: 'AI-ChatPharo-Memory' with: [ spec requires: #( 'AI-ChatPharo' ) ].
 			spec package: 'AI-ChatPharo-Director' with: [ spec requires: #( 'AI-ChatPharo' ) ].
 			spec package: 'AI-ChatPharo-MCP' with: [ spec requires: #( 'AI-ChatPharo' 'LLMPharoMCP' ) ].
+			spec package: 'AI-ChatPharo-ACP' with: [ spec requires: #( 'AI-ChatPharo' 'LLMPharoACP' ) ].
 			spec
 				package: 'AI-ChatPharo-Benchmarks'
 				with: [ spec requires: #( 'AI-ChatPharo' 'AI-ChatPharo-Agent' 'AI-ChatPharo-Tools' 'AI-ChatPharo-History' ) ].
@@ -124,7 +126,8 @@ BaselineOfAIChatPharo >> baseline: spec [
 					spec requires:
 						#( 'AI-ChatPharo' 'AI-ChatPharo-Agent' 'AI-ChatPharo-Spec' 'AI-ChatPharo-Tools' 'AI-ChatPharo-History'
 						   'AI-ChatPharo-Env' 'AI-ChatPharo-Safety' 'AI-ChatPharo-Skills' 'AI-ChatPharo-Sandbox' 'AI-ChatPharo-Multivers'
-						   'AI-ChatPharo-Tutorial' 'AI-ChatPharo-Ethics' 'AI-ChatPharo-Memory' 'AI-ChatPharo-Director' 'AI-ChatPharo-MCP' ) ] ]
+						   'AI-ChatPharo-Tutorial' 'AI-ChatPharo-Ethics' 'AI-ChatPharo-Memory' 'AI-ChatPharo-Director' 'AI-ChatPharo-MCP'
+						   'AI-ChatPharo-ACP' ) ] ]
 ]
 
 { #category : 'baselines' }
