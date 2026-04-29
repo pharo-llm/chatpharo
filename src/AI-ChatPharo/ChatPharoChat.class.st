@@ -64,17 +64,17 @@ ChatPharoChat >> addAssistantMessage: anAnswer [
 					outTok := answerText outputTokens.
 					totTok := answerText totalTokens ].
 			answerText := answerText content ].
-
-	(thinking isNil and: [ self agent respondsTo: #response ]) ifTrue: [
+	(self agent respondsTo: #response) ifTrue: [
 			| agentResponse |
 			agentResponse := self agent response.
-			(agentResponse respondsTo: #thinking) ifTrue: [ thinking := agentResponse thinking ].
-			(inTok isNil and: [ agentResponse respondsTo: #inputTokens ]) ifTrue: [
-					inTok := agentResponse inputTokens.
-					outTok := agentResponse outputTokens.
-					totTok := agentResponse totalTokens ] ].
-
-
+			agentResponse ifNotNil: [
+					thinking ifNil: [ (agentResponse respondsTo: #thinking) ifTrue: [ thinking := agentResponse thinking ] ].
+					inTok ifNil: [
+							(agentResponse respondsTo: #inputTokens) ifTrue: [
+									inTok := agentResponse inputTokens.
+									outTok := agentResponse outputTokens.
+									totTok := agentResponse totalTokens ] ] ] ]. 
+	(totTok isNil and: [ inTok notNil and: [ outTok notNil ] ]) ifTrue: [ totTok := inTok + outTok ].
 	history addAssistant: answerText.
 	multivers := ChatPharoSettings default multivers.
 	label := (multivers notNil and: [ multivers canExecute ])
@@ -83,15 +83,13 @@ ChatPharoChat >> addAssistantMessage: anAnswer [
 				         (self agent isKindOf: ChatPharoNullAgent)
 					         ifTrue: [ 'Assistant bot' ]
 					         ifFalse: [ 'Assistant' ] ].
-
 	messages last
 		answer: answerText;
 		assistantLabel: label;
 		thinking: (thinking ifNil: [ '' ]);
-		inputTokens: inTok;
-		outputTokens: outTok;
-		totalTokens: totTok.
-
+		inputTokens: (inTok ifNil: [ 0 ]);
+		outputTokens: (outTok ifNil: [ 0 ]);
+		totalTokens: (totTok ifNil: [ 0 ]).
 	ChatPharoLogger logBackend: 'Assistant response recorded' details: (Dictionary new
 			 at: 'chatId' put: self identityHash;
 			 at: 'agent' put: (ChatPharoLogger agentNameFor: self agent);

@@ -354,7 +354,7 @@ ChatPharoTool >> friendlyErrorMessageFor: response [
 { #category : 'initialization' }
 ChatPharoTool >> getResponseForHistory: history [
 
-	| messages data response message toolCalls thinkingText httpClient startedAt elapsedSeconds director |
+	| messages data response message toolCalls thinkingText httpClient startedAt elapsedSeconds director responseJson usage |
 	messages := Array streamContents: [ :stream |
 			            systemPrompt ifNotNil: [ stream nextPut: (Dictionary with: 'role' -> 'system' with: 'content' -> systemPrompt) ].
 			            history putOpenAIChatMessagesOn: stream ].
@@ -372,9 +372,10 @@ ChatPharoTool >> getResponseForHistory: history [
 			            elapsedSeconds := (DateAndTime now - startedAt) asSeconds.
 			            director := ChatPharoSettings default ethicsDirector.
 			            director ifNotNil: [ director lastRequestDurationSeconds: elapsedSeconds ] ].
-	response isSuccess ifFalse: [
-Error signal: (self friendlyErrorMessageFor: response) ].
-	message := ((STONJSON fromString: response contents) at: 'choices') first at: 'message'.
+	response isSuccess ifFalse: [ Error signal: (self friendlyErrorMessageFor: response) ].
+	responseJson := STONJSON fromString: response contents.
+	message := (responseJson at: 'choices') first at: 'message'.
+	usage := responseJson at: 'usage' ifAbsent: [ nil ].
 	toolCalls := self toolCallsFromMessage: message.
 	thinkingText := nil.
 	toolCalls ifNotNil: [
@@ -400,9 +401,11 @@ Error signal: (self friendlyErrorMessageFor: response) ].
 												                nextPutAll: '...';
 												                cr ].
 									                stream cr ] ] ] ].
-
 	^ (ChatPharoHistorySaver role: 'assistant' content: (message at: 'content' ifAbsent: [ nil ]) toolCalls: toolCalls)
 		  thinking: thinkingText;
+		  inputTokens: (usage ifNotNil: [ usage at: 'prompt_tokens' ifAbsent: [ nil ] ]);
+		  outputTokens: (usage ifNotNil: [ usage at: 'completion_tokens' ifAbsent: [ nil ] ]);
+		  totalTokens: (usage ifNotNil: [ usage at: 'total_tokens' ifAbsent: [ nil ] ]);
 		  yourself
 ]
 
