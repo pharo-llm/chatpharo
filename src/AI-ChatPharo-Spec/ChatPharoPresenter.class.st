@@ -192,13 +192,6 @@ ChatPharoPresenter >> initializePresenters [
 		                        yourself.
 
 	toolbar add: (SpToolbarButtonPresenter new
-			 label: 'Help';
-			 icon: (self iconNamed: #smallQuestion);
-			 help: 'Get help with ChatPharo - context-aware assistance';
-			 action: [ self openHelp ];
-			 yourself).
-
-	toolbar add: (SpToolbarButtonPresenter new
 			 label: 'Tutorial';
 			 icon: (self iconNamed: #help);
 			 help: 'Start interactive tutorial';
