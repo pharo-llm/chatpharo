@@ -20,6 +20,24 @@ ChatPharoState class >> aiWorldMenuOn: aBuilder [
 ]
 
 { #category : 'world state' }
+ChatPharoState class >> chatPharoHelpWorldMenuOn: aBuilder [
+
+	<worldMenu>
+	(aBuilder item: #ChatPharoHelp)
+		parent: #ChatPharo;
+		order: 4;
+		action: [
+				| helpPresenter |
+				helpPresenter := ChatPharoHelpPresenter new.
+				helpPresenter currentContext: ''.
+				helpPresenter chatPharo: ChatPharo new.
+				helpPresenter open ];
+		label: 'Help';
+		icon: (self iconNamed: #smallQuestion);
+		help: 'Get help with ChatPharo'
+]
+
+{ #category : 'world state' }
 ChatPharoState class >> chatPharoSettingsWorldMenuOn: aBuilder [
 
 	<worldMenu>
