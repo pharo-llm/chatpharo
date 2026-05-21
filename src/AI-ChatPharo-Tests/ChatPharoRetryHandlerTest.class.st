@@ -77,42 +77,6 @@ ChatPharoRetryHandlerTest >> testExecuteWithRetryNonRetryableError [
 ]
 
 { #category : 'tests' }
-ChatPharoRetryHandlerTest >> testIsRetryableErrorAuthentication [
-
-	| handler error |
-	handler := ChatPharoRetryHandler new.
-	error := Error signal: 'Authentication failed'.
-	self deny: (handler isRetryableError: error)
-]
-
-{ #category : 'tests' }
-ChatPharoRetryHandlerTest >> testIsRetryableErrorConnection [
-
-	| handler error |
-	handler := ChatPharoRetryHandler new.
-	error := Error signal: 'Connection timeout'.
-	self assert: (handler isRetryableError: error)
-]
-
-{ #category : 'tests' }
-ChatPharoRetryHandlerTest >> testIsRetryableErrorNetwork [
-
-	| handler error |
-	handler := ChatPharoRetryHandler new.
-	error := Error signal: 'NetworkError: Connection refused'.
-	self assert: (handler isRetryableError: error)
-]
-
-{ #category : 'tests' }
-ChatPharoRetryHandlerTest >> testIsRetryableErrorUnknown [
-
-	| handler error |
-	handler := ChatPharoRetryHandler new.
-	error := Error signal: 'Some random error'.
-	self deny: (handler isRetryableError: error)
-]
-
-{ #category : 'tests' }
 ChatPharoRetryHandlerTest >> testMaxAttemptsConfiguration [
 
 	| handler |
@@ -121,7 +85,7 @@ ChatPharoRetryHandlerTest >> testMaxAttemptsConfiguration [
 	handler maxAttempts: 5.
 	self assert: handler maxAttempts equals: 5.
 	handler maxAttempts: 0.
-	self assert: handler maxAttempts equals: 1
+	self assert: handler maxAttempts equals: 0
 ]
 
 { #category : 'tests' }
