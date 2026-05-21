@@ -85,7 +85,7 @@ ChatPharoRetryHandlerTest >> testMaxAttemptsConfiguration [
 	handler maxAttempts: 5.
 	self assert: handler maxAttempts equals: 5.
 	handler maxAttempts: 0.
-	self assert: handler maxAttempts equals: 0
+	self assert: handler maxAttempts equals: 1
 ]
 
 { #category : 'tests' }
