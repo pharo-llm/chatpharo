@@ -169,7 +169,7 @@ ChatPharoRetryHandler >> maxAttempts [
 { #category : 'accessing' }
 ChatPharoRetryHandler >> maxAttempts: anInteger [
 	
-	maxAttempts := anInteger
+	maxAttempts := anInteger max: 1
 ]
 
 { #category : 'accessing' }
