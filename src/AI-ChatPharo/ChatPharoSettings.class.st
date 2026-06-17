@@ -74,7 +74,8 @@ Class {
 		'retryEnabled',
 		'retryMaxAttempts',
 		'retryBaseDelay',
-		'retryMaxDelay'
+		'retryMaxDelay',
+		'metadataEnabled'
 	],
 	#classInstVars : [
 		'Default'
@@ -211,6 +212,8 @@ ChatPharoSettings class >> loadOrNew [
 					  settings privateSetRetryBaseDelay: 2 ].
 				  settings retryMaxDelay ifNil: [
 					  settings privateSetRetryMaxDelay: 30 ].
+				  settings metadataEnabled ifNil: [
+					  settings privateSetMetadataEnabled: true ].
 				  ^ settings ]
 				  on: Error
 				  do: [ ^ self new ] ]
@@ -915,6 +918,7 @@ ChatPharoSettings >> initialize [
 	retryMaxAttempts := 3.
 	retryBaseDelay := 2.
 	retryMaxDelay := 30.
+	metadataEnabled := true.
 	ChatPharoLogger loggingEnabled: true.
 	ChatPharoLogger
 		logSystem: 'Settings initialized'
@@ -1335,6 +1339,11 @@ ChatPharoSettings >> privateSetRetryMaxDelay: aNumber [
 ]
 
 { #category : 'private' }
+ChatPharoSettings >> privateSetMetadataEnabled: aBoolean [
+	metadataEnabled := aBoolean
+]
+
+{ #category : 'private' }
 ChatPharoSettings >> privateSetSandboxEnabled: aBoolean [
 
 	sandboxEnabled := aBoolean
@@ -1534,6 +1543,58 @@ ChatPharoSettings >> retryMaxDelay: aNumber [
 		details: (Dictionary new
 			at: 'value' put: retryMaxDelay;
 			yourself)
+]
+
+{ #category : 'metadata' }
+ChatPharoSettings >> metadataEnabled [
+	"Whether to send metadata (version, platform, etc.) to the AI model"
+	
+	^ metadataEnabled ifNil: [ metadataEnabled := true ]
+]
+
+{ #category : 'metadata' }
+ChatPharoSettings >> metadataEnabled: aBoolean [
+	"Enable or disable sending metadata to the AI model"
+	
+	metadataEnabled := aBoolean.
+	self class setDefault: self.
+	self class saveDefault.
+	ChatPharoLogger logFrontend: 'Metadata toggled'
+		details: (Dictionary new
+			at: 'enabled' put: aBoolean;
+			yourself)
+]
+
+{ #category : 'metadata' }
+ChatPharoSettings >> metadataString [
+	"Build a metadata string with version and platform info for the AI model"
+	
+	| stream |
+	stream := String new writeStream.
+	stream nextPutAll: '## ChatPharo Environment'.
+	stream cr.
+	stream nextPutAll: '- ChatPharo version: '.
+	stream nextPutAll: self chatPharoVersion.
+	stream cr.
+	stream nextPutAll: '- Pharo version: '.
+	stream nextPutAll: SystemVersion current asString.
+	stream cr.
+	stream nextPutAll: '- Platform: '.
+	stream nextPutAll: OSPlatform current name.
+	stream cr.
+	stream nextPutAll: '- Locale: '.
+	stream nextPutAll: Locale current asString.
+	stream cr.
+	stream nextPutAll: '- Timestamp: '.
+	stream nextPutAll: DateAndTime now asStringYMDHMS.
+	^ stream contents
+]
+
+{ #category : 'metadata' }
+ChatPharoSettings >> chatPharoVersion [
+	"Return the current ChatPharo version string"
+	
+	^ '1.0.0'
 ]
 
 { #category : 'private' }

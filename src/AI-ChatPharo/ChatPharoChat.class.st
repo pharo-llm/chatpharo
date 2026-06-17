@@ -168,6 +168,20 @@ ChatPharoChat >> buildPromptPrefixWithMemoryFor: queryText [
 	^ prefix
 ]
 
+{ #category : 'private' }
+ChatPharoChat >> withMetadataInjectedOn: anAgent do: aBlock [
+	"Temporarily append environment metadata to the agent's system prompt.
+	Restores the original prompt after the block completes (including errors).
+	No-op when metadata is disabled in settings."
+	
+	| settings originalPrompt |
+	settings := ChatPharoSettings default.
+	settings metadataEnabled ifFalse: [ ^ aBlock value ].
+	originalPrompt := anAgent systemPrompt.
+	anAgent systemPrompt: originalPrompt , String cr , String cr , settings metadataString.
+	^ aBlock ensure: [ anAgent systemPrompt: originalPrompt ]
+]
+
 { #category : 'running' }
 ChatPharoChat >> cancelMessage [
 
@@ -518,9 +532,11 @@ ChatPharoChat >> sendMessage: aText [
 					                 retryHandler onRetryAttempt: [ :attempt :max |
 						                 onErrorReceived ifNotNil: [ :blk |
 							                 blk value: 'Connection lost. Retrying attempt ' , attempt asString , '/' , max asString , '...' ] ].
-					                 answer := retryHandler executeWithRetry: [ backend getResponseForPrompt: aText ] ]
+					                 answer := self withMetadataInjectedOn: backend do: [
+						                 retryHandler executeWithRetry: [ backend getResponseForPrompt: aText ] ] ]
 				                 ifFalse: [
-					                 answer := backend getResponseForPrompt: aText ].
+					                 answer := self withMetadataInjectedOn: backend do: [
+						                 backend getResponseForPrompt: aText ] ].
 			                 cache at: aText put: answer.
 			                 self addAssistantMessage: answer.
 			                 onAnswerReceived ifNotNil: [ :blk | blk value: messages last ] ]
@@ -589,9 +605,11 @@ ChatPharoChat >> sendMessage: aText withAttachments: attachmentCollection [
 					                 retryHandler onRetryAttempt: [ :attempt :max |
 						                 onErrorReceived ifNotNil: [ :blk |
 							                 blk value: 'Connection lost. Retrying attempt ' , attempt asString , '/' , max asString , '...' ] ].
-					                 answer := retryHandler executeWithRetry: [ backend getResponseForPrompt: textWithAttachments ] ]
+					                 answer := self withMetadataInjectedOn: backend do: [
+						                 retryHandler executeWithRetry: [ backend getResponseForPrompt: textWithAttachments ] ] ]
 				                 ifFalse: [
-					                 answer := backend getResponseForPrompt: textWithAttachments ].
+					                 answer := self withMetadataInjectedOn: backend do: [
+						                 backend getResponseForPrompt: textWithAttachments ] ].
 			                 cache at: textWithAttachments put: answer.
 			                 self addAssistantMessage: answer.
 			                 onAnswerReceived ifNotNil: [ :blk | blk value: messages last ].

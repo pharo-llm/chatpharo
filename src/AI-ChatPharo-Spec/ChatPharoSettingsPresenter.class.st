@@ -42,7 +42,8 @@ Class {
 		'timeBudgetInput',
 		'requestTimeoutInput',
 		'messageLimitInput',
-		'dynamicChatNamingCheckBox'
+		'dynamicChatNamingCheckBox',
+		'metadataEnabledCheckBox'
 	],
 	#category : 'AI-ChatPharo-Spec-Core',
 	#package : 'AI-ChatPharo-Spec',
@@ -165,6 +166,11 @@ ChatPharoSettingsPresenter >> connectPresenters [
 		                             addCheckboxLabeled: 'Enable Dynamic Chat Naming'
 		                             value: [ ChatPharoSettings default dynamicChatNamingEnabled ]
 		                             changeAction: [ :val | ChatPharoSettings default dynamicChatNamingEnabled: val ].
+
+	metadataEnabledCheckBox := self
+		                           addCheckboxLabeled: 'Send environment metadata to the model'
+		                           value: [ ChatPharoSettings default metadataEnabled ]
+		                           changeAction: [ :val | ChatPharoSettings default metadataEnabled: val ].
 
 	ethicsDirectorCheckBox whenChangedDo: [ :enabled | model ethicsDirectorEnabled: enabled ].
 
@@ -525,6 +531,7 @@ ChatPharoSettingsPresenter >> newChatTab [
 		             add: feedbackCheckBox expand: false;
 		             add: welcomeMessageCheckBox expand: false;
 						 add: dynamicChatNamingCheckBox expand: false;
+						 add: metadataEnabledCheckBox expand: false;
 		             yourself.
 
 	^ SpPresenter new
