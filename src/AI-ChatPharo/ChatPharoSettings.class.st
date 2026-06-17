@@ -1586,7 +1586,7 @@ ChatPharoSettings >> metadataString [
 	stream nextPutAll: Locale current asString.
 	stream cr.
 	stream nextPutAll: '- Timestamp: '.
-	stream nextPutAll: DateAndTime now asStringYMDHMS.
+	stream nextPutAll: DateAndTime now asString.
 	^ stream contents
 ]
 
