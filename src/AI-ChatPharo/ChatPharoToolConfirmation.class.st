@@ -63,6 +63,15 @@ ChatPharoToolConfirmation class >> mutatingToolNames [
 ]
 
 { #category : 'class initialization' }
+ChatPharoToolConfirmation class >> initialize [
+	"Eagerly create the default singleton so that parallel forked tool
+	 processes cannot race on lazy initialisation and end up with different
+	 instances (each with its own empty sessionAllowList)."
+	
+	self default
+]
+
+{ #category : 'class initialization' }
 ChatPharoToolConfirmation class >> reset [
 
 	<script>
@@ -119,15 +128,31 @@ ChatPharoToolConfirmation >> clearSessionApprovals [
 { #category : 'public' }
 ChatPharoToolConfirmation >> confirmToolNamed: aToolName arguments: anArguments [
 
-	^ [
-		  (self gate
-			   confirmToolNamed: aToolName
-			   arguments: anArguments
-			   action: (self actionLabelFor: aToolName)
-			   summary: (self summaryForTool: aToolName arguments: anArguments)) ifNil: [ ChatPharoToolConfirmationDecision deny ] ]
-		  on: Error
-		  do: [ :e |
-			  ChatPharoToolConfirmationDecision denyWithReason: 'Confirmation dialog failed: ' , e messageText ]
+	| result |
+	result := [
+		         (self gate
+			          confirmToolNamed: aToolName
+			          arguments: anArguments
+			          action: (self actionLabelFor: aToolName)
+			          summary: (self summaryForTool: aToolName arguments: anArguments)) ifNil: [
+				ChatPharoLogger logSystem: 'ToolConfirmation gate returned nil' details: (Dictionary new
+						at: 'tool' put: aToolName;
+						yourself).
+				ChatPharoToolConfirmationDecision deny ] ]
+		         on: Error
+		         do: [ :e |
+			         ChatPharoLogger logSystem: 'ToolConfirmation gate error' details: (Dictionary new
+					         at: 'tool' put: aToolName;
+					         at: 'error' put: e messageText;
+					         at: 'signalContext' put: e signalContext printString;
+					         yourself).
+			         ChatPharoToolConfirmationDecision denyWithReason: 'Confirmation dialog failed: ' , e messageText ].
+	result isDeny ifTrue: [
+		ChatPharoLogger logSystem: 'Tool denied by gate' details: (Dictionary new
+				at: 'tool' put: aToolName;
+				at: 'reason' put: result reason;
+				yourself) ].
+	^ result
 ]
 
 { #category : 'accessing' }
@@ -146,15 +171,37 @@ ChatPharoToolConfirmation >> gate: aGate [
 ChatPharoToolConfirmation >> guardToolNamed: aToolName arguments: anArguments ifDeniedDo: aBlock [
 
 	| decision |
-	self isEnabled ifFalse: [ ^ self ].
-	(self isMutatingTool: aToolName) ifFalse: [ ^ self ].
-	(self isApprovedForSession: aToolName) ifTrue: [ ^ self ].
+	self isEnabled ifFalse: [
+		ChatPharoLogger logSystem: 'ToolConfirmation disabled by setting' details: (Dictionary new
+				at: 'tool' put: aToolName;
+				yourself).
+		^ self ].
+	(self isMutatingTool: aToolName) ifFalse: [
+		ChatPharoLogger logSystem: 'Tool is not mutating, bypassing guard' details: (Dictionary new
+				at: 'tool' put: aToolName;
+				yourself).
+		^ self ].
+	(self isApprovedForSession: aToolName) ifTrue: [
+		ChatPharoLogger logSystem: 'Tool approved via sessionAllowList' details: (Dictionary new
+				at: 'tool' put: aToolName;
+				at: 'allowList' put: self sessionAllowList asArray;
+				yourself).
+		^ self ].
 
 	decision := self confirmToolNamed: aToolName arguments: anArguments.
 
-	decision isAlways ifTrue: [ self sessionAllowList add: aToolName ].
+	decision isAlways ifTrue: [
+		self sessionAllowList add: aToolName.
+		ChatPharoLogger logSystem: 'Tool added to sessionAllowList (Always)' details: (Dictionary new
+				at: 'tool' put: aToolName;
+				at: 'allowList' put: self sessionAllowList asArray;
+				yourself) ].
 	decision isAllow ifTrue: [ ^ self ].
 
+	ChatPharoLogger logSystem: 'Tool denied by user' details: (Dictionary new
+			at: 'tool' put: aToolName;
+			at: 'reason' put: decision reason;
+			yourself).
 	^ aBlock value: (self cancellationPayloadFor: aToolName reason: decision reason)
 ]
 

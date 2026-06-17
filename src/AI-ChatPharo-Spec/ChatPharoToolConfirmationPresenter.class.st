@@ -89,6 +89,11 @@ ChatPharoToolConfirmationPresenter class >> deferConfirmationFor: aToolName argu
 				summary: summaryString) ]
 			on: Error
 			do: [ :e |
+				ChatPharoLogger logFrontend: 'ToolConfirmation dialog crashed' details: (Dictionary new
+						at: 'tool' put: aToolName;
+						at: 'error' put: e messageText;
+						at: 'signalContext' put: e signalContext printString;
+						yourself).
 				answerHolder at: 1 put: (ChatPharoToolConfirmationDecision
 					denyWithReason: 'Confirmation dialog crashed: ', e messageText) ].
 		semaphore signal ].
@@ -141,6 +146,10 @@ ChatPharoToolConfirmationPresenter class >> runConfirmationFor: aToolName argume
 ChatPharoToolConfirmationPresenter >> accept [
 
 	decision := ChatPharoToolConfirmationDecision allow.
+	ChatPharoLogger logFrontend: 'ToolConfirmation: Allow clicked' details: (Dictionary new
+			at: 'tool' put: (toolName ifNil: [ '?' ]);
+			at: 'decision' put: 'allow';
+			yourself).
 	self closeWindow
 ]
 
@@ -148,6 +157,10 @@ ChatPharoToolConfirmationPresenter >> accept [
 ChatPharoToolConfirmationPresenter >> acceptAlways [
 
 	decision := ChatPharoToolConfirmationDecision always.
+	ChatPharoLogger logFrontend: 'ToolConfirmation: Always Allow clicked' details: (Dictionary new
+			at: 'tool' put: (toolName ifNil: [ '?' ]);
+			at: 'decision' put: 'always';
+			yourself).
 	self closeWindow
 ]
 
@@ -292,6 +305,9 @@ ChatPharoToolConfirmationPresenter >> openModalDialog [
 
 	self openModal.
 	decision ifNil: [
+		ChatPharoLogger logFrontend: 'ToolConfirmation: window closed without decision' details: (Dictionary new
+				at: 'tool' put: (toolName ifNil: [ '?' ]);
+				yourself).
 		decision := ChatPharoToolConfirmationDecision
 			denyWithReason: 'The user closed the confirmation dialog without deciding.' ]
 ]
@@ -301,6 +317,10 @@ ChatPharoToolConfirmationPresenter >> reject [
 
 	decision := ChatPharoToolConfirmationDecision
 		denyWithReason: 'The user denied the tool call from the confirmation dialog.'.
+	ChatPharoLogger logFrontend: 'ToolConfirmation: Deny clicked' details: (Dictionary new
+			at: 'tool' put: (toolName ifNil: [ '?' ]);
+			at: 'decision' put: 'deny';
+			yourself).
 	self closeWindow
 ]
 
