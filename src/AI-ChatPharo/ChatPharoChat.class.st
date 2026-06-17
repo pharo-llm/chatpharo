@@ -172,11 +172,14 @@ ChatPharoChat >> buildPromptPrefixWithMemoryFor: queryText [
 ChatPharoChat >> withMetadataInjectedOn: anAgent do: aBlock [
 	"Temporarily append environment metadata to the agent's system prompt.
 	Restores the original prompt after the block completes (including errors).
-	No-op when metadata is disabled in settings."
+	No-op when metadata is disabled in settings or when the agent does not
+	implement the expected protocol (spy agents in tests are plain Objects)."
 	
 	| settings originalPrompt |
 	settings := ChatPharoSettings default.
 	settings metadataEnabled ifFalse: [ ^ aBlock value ].
+	(anAgent respondsTo: #systemPrompt) ifFalse: [ ^ aBlock value ].
+	(anAgent respondsTo: #systemPrompt:) ifFalse: [ ^ aBlock value ].
 	originalPrompt := anAgent systemPrompt.
 	anAgent systemPrompt: originalPrompt , String cr , String cr , settings metadataString.
 	^ aBlock ensure: [ anAgent systemPrompt: originalPrompt ]

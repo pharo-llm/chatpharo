@@ -102,6 +102,7 @@ ChatPharoMockAgent >> systemPrompt [
 
 { #category : 'private - uffi' }
 ChatPharoMockAgent >> systemPrompt: aString [ 
-
-        self system: aString
+        "No-op for the mock agent. Real agents store systemPrompt as an ivar
+	 without touching conversationHistory; forwarding to #system: would
+	 inflate history counts used by tests to tally backend calls."
 ]
