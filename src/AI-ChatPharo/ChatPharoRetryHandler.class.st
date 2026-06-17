@@ -148,6 +148,9 @@ ChatPharoRetryHandler >> isRetryableError: anError [
 	(errorMessage includesSubstring: 'overloaded') ifTrue: [ ^ true ].
 	(errorMessage includesSubstring: 'rate limit') ifTrue: [ ^ true ].
 	
+	"Check for wrapped HTTP 5xx server errors (ChatPharoTool wraps these as generic Error)"
+	(errorMessage includesSubstring: 'chat completion: 5') ifTrue: [ ^ true ].
+	
 	"Check for non-retryable patterns"
 	(errorMessage includesSubstring: 'authentication') ifTrue: [ ^ false ].
 	(errorMessage includesSubstring: 'unauthorized') ifTrue: [ ^ false ].
