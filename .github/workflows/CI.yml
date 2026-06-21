@@ -22,7 +22,7 @@ jobs:
     name: ${{ matrix.smalltalk }}
     
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: hpi-swa/setup-smalltalkCI@v1
         with:
