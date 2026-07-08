@@ -18,8 +18,7 @@ Class {
 		'testButton',
 		'maxTokensInput',
 		'topPInput',
-		'customParametersInput',
-		'onSettingsChanged'
+		'customParametersInput'
 	],
 	#category : 'AI-ChatPharo-Spec-Agent',
 	#package : 'AI-ChatPharo-Spec',
@@ -29,23 +28,16 @@ Class {
 { #category : 'initialization' }
 ChatPharoOllamaSettingsPresenter >> connectPresenters [
 
-	modelsDrop whenSelectedItemChangedDo: [ :name |
-		model model: name.
-		self notifySettingsChanged ].
-	hostInput whenTextChangedDo: [ :text |
-		model host: text.
-		self notifySettingsChanged ].
-	portInput whenTextChangedDo: [ :text |
-		model port: text.
-		self notifySettingsChanged ].
+	modelsDrop whenSelectedItemChangedDo: [ :name | model model: name ].
+	hostInput whenTextChangedDo: [ :text | model host: text ].
+	portInput whenTextChangedDo: [ :text | model port: text ].
 	temperatureInput whenTextChangedDo: [ :text |
 			| num |
 			num := 0.0.
 			[ num := text asNumber ]
 				on: Error
 				do: [ :ex | num := model temperature ].
-			model temperature: num.
-			self notifySettingsChanged ].
+			model temperature: num ].
 	
 	maxTokensInput whenTextChangedDo: [ :text |
 		self updateMaxTokensFrom: text ].
@@ -156,9 +148,7 @@ ChatPharoOllamaSettingsPresenter >> initializePresenters [
 	super initializePresenters.
 
 	modelsDrop := SpDropListPresenter new.
-	modelsDrop whenSelectedItemChangedDo: [ :m |
-		model model: m.
-		self notifySettingsChanged ].
+	modelsDrop whenSelectedItemChangedDo: [ :m | model model: m ].
 	
 	refreshButton := self newButton
 		                 label: 'Refresh';
@@ -274,12 +264,6 @@ ChatPharoOllamaSettingsPresenter >> modelsDrop: anObject [
 	modelsDrop := anObject
 ]
 
-{ #category : 'initialization' }
-ChatPharoOllamaSettingsPresenter >> notifySettingsChanged [
-
-	onSettingsChanged ifNotNil: [ :block | block value ]
-]
-
 { #category : 'accessing' }
 ChatPharoOllamaSettingsPresenter >> refreshButton [
 
@@ -356,7 +340,6 @@ ChatPharoOllamaSettingsPresenter >> updateCustomParametersFrom: text [
 	trimmed := (text ifNil: [ '' ]) asString trimBoth.
 	trimmed isEmpty ifTrue: [
 		model customParameters: Dictionary new.
-		self notifySettingsChanged.
 		^ self
 	].
 
@@ -367,9 +350,7 @@ ChatPharoOllamaSettingsPresenter >> updateCustomParametersFrom: text [
 		].
 
 	(parsed isDictionary)
-		ifTrue: [
-			model customParameters: parsed.
-			self notifySettingsChanged ]
+		ifTrue: [ model customParameters: parsed ]
 		ifFalse: [ self inform: 'Custom parameters must be a JSON object.' ]
 ]
 
@@ -380,7 +361,6 @@ ChatPharoOllamaSettingsPresenter >> updateMaxTokensFrom: text [
 	trimmed := (text ifNil: [ '' ]) asString trimBoth.
 	trimmed isEmpty ifTrue: [
 		model maxTokens: nil.
-		self notifySettingsChanged.
 		^ self
 	].
 
@@ -392,9 +372,7 @@ ChatPharoOllamaSettingsPresenter >> updateMaxTokensFrom: text [
 
 	number isInteger
 		ifFalse: [ self inform: 'Max tokens must be a whole number.' ]
-		ifTrue: [
-			model maxTokens: number.
-			self notifySettingsChanged ]
+		ifTrue: [ model maxTokens: number ]
 ]
 
 { #category : 'initialization' }
@@ -404,7 +382,6 @@ ChatPharoOllamaSettingsPresenter >> updateTopPFrom: text [
 	trimmed := (text ifNil: [ '' ]) asString trimBoth.
 	trimmed isEmpty ifTrue: [
 		model topP: nil.
-		self notifySettingsChanged.
 		^ self
 	].
 
@@ -416,13 +393,5 @@ ChatPharoOllamaSettingsPresenter >> updateTopPFrom: text [
 
 	(number < 0.0 or: [ number > 1.0 ])
 		ifTrue: [ self inform: 'Top P must be between 0.0 and 1.0.' ]
-		ifFalse: [
-			model topP: number asFloat.
-			self notifySettingsChanged ]
-]
-
-{ #category : 'initialization' }
-ChatPharoOllamaSettingsPresenter >> whenSettingsChangedDo: aBlock [
-
-	onSettingsChanged := aBlock
+		ifFalse: [ model topP: number asFloat ]
 ]

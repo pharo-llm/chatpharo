@@ -352,8 +352,6 @@ ChatPharoMCPTest >> testMCPToolsFlowToAgents [
 			                ChatPharoGeminiAgent.
 			                ChatPharoOllamaAgent.
 			                ChatPharoDeepSeekAgent.
-			                ChatPharoOpenRouterAgent.
-			                ChatPharoGroqAgent.
 			                ChatPharoLMStudioAgent }.
 		agentClasses do: [ :cls |
 				| agent |

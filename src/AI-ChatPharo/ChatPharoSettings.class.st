@@ -406,9 +406,7 @@ ChatPharoSettings >> availableApis [
 		  ChatPharoMistralAgent.
 		  ChatPharoClaudeAgent.
 		  ChatPharoDeepSeekAgent.
-		  ChatPharoOpenAIAgent.
-		  ChatPharoOpenRouterAgent.
-		  ChatPharoGroqAgent }
+		  ChatPharoOpenAIAgent }
 ]
 
 { #category : 'initialization' }

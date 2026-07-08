@@ -136,22 +136,6 @@ ChatPharoTool class >> lmStudioWithHost: host port: port system: system tools: t
 ]
 
 { #category : 'instance creation' }
-ChatPharoTool class >> groqWithAPIKey: apiKey system: system [
-
-	^ self groqWithAPIKey: apiKey system: system tools: nil
-]
-
-{ #category : 'instance creation' }
-ChatPharoTool class >> groqWithAPIKey: apiKey system: system tools: tools [
-
-	^ self
-		  baseURL: (ZnUrl fromString: 'https://api.groq.com/openai/v1')
-		  apiKey: apiKey
-		  system: system
-		  tools: tools
-]
-
-{ #category : 'instance creation' }
 ChatPharoTool class >> mistralWithAPIKey: apiKey system: system [ 
 
 
@@ -198,22 +182,6 @@ ChatPharoTool class >> openAIWithAPIKey: apiKey system: system tools: tools [
 
 	^ self
 		  baseURL: (ZnUrl fromString: 'https://api.openai.com/v1')
-		  apiKey: apiKey
-		  system: system
-		  tools: tools
-]
-
-{ #category : 'instance creation' }
-ChatPharoTool class >> openRouterWithAPIKey: apiKey system: system [
-
-	^ self openRouterWithAPIKey: apiKey system: system tools: nil
-]
-
-{ #category : 'instance creation' }
-ChatPharoTool class >> openRouterWithAPIKey: apiKey system: system tools: tools [
-
-	^ self
-		  baseURL: (ZnUrl fromString: 'https://openrouter.ai/api/v1')
 		  apiKey: apiKey
 		  system: system
 		  tools: tools

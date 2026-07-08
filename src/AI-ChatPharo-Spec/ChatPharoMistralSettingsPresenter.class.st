@@ -13,8 +13,7 @@ Class {
 		'testButton',
 		'maxTokensInput',
 		'topPInput',
-		'customParametersInput',
-		'onSettingsChanged'
+		'customParametersInput'
 	],
 	#category : 'AI-ChatPharo-Spec-Agent',
 	#package : 'AI-ChatPharo-Spec',
@@ -123,19 +122,14 @@ ChatPharoMistralSettingsPresenter >> initializePresenters [
 				                ifFalse: (String new: model apiKey size withAll: $*)).
 
 	modelDrop := SpDropListPresenter new.
-	modelDrop whenSelectedItemChangedDo: [ :m |
-		model model: m.
-		self notifySettingsChanged ].
+	modelDrop whenSelectedItemChangedDo: [ :m | model model: m ].
 	
 	
 	self refreshModels.
-	hostField whenTextChangedDo: [ :t |
-		model host: t.
-		self notifySettingsChanged ].
+	hostField whenTextChangedDo: [ :t | model host: t ].
 	apiKeyField whenTextChangedDo: [ :t |
 			model apiKey: t.
-			self refreshModels.
-			self notifySettingsChanged ].
+			self refreshModels ].
 
 	temperatureInput := self newTextInput
 		                    placeholder: '0.0 (leave empty for default)';
@@ -186,12 +180,6 @@ ChatPharoMistralSettingsPresenter >> modelDrop [
 ChatPharoMistralSettingsPresenter >> modelDrop: anObject [
 
 	modelDrop := anObject
-]
-
-{ #category : 'initialization' }
-ChatPharoMistralSettingsPresenter >> notifySettingsChanged [
-
-	onSettingsChanged ifNotNil: [ :block | block value ]
 ]
 
 { #category : 'layout' }
@@ -256,7 +244,6 @@ ChatPharoMistralSettingsPresenter >> updateCustomParametersFrom: text [
 	trimmed := (text ifNil: [ '' ]) asString trimBoth.
 	trimmed isEmpty ifTrue: [
 		model customParameters: Dictionary new.
-		self notifySettingsChanged.
 		^ self
 	].
 
@@ -267,9 +254,7 @@ ChatPharoMistralSettingsPresenter >> updateCustomParametersFrom: text [
 		].
 
 	(parsed isDictionary)
-		ifTrue: [
-			model customParameters: parsed.
-			self notifySettingsChanged ]
+		ifTrue: [ model customParameters: parsed ]
 		ifFalse: [ self inform: 'Custom parameters must be a JSON object.' ]
 ]
 
@@ -280,7 +265,6 @@ ChatPharoMistralSettingsPresenter >> updateMaxTokensFrom: text [
 	trimmed := (text ifNil: [ '' ]) asString trimBoth.
 	trimmed isEmpty ifTrue: [
 		model maxTokens: nil.
-		self notifySettingsChanged.
 		^ self
 	].
 
@@ -292,9 +276,7 @@ ChatPharoMistralSettingsPresenter >> updateMaxTokensFrom: text [
 
 	number isInteger
 		ifFalse: [ self inform: 'Max tokens must be a whole number.' ]
-		ifTrue: [
-			model maxTokens: number.
-			self notifySettingsChanged ]
+		ifTrue: [ model maxTokens: number ]
 ]
 
 { #category : 'helper' }
@@ -305,7 +287,6 @@ ChatPharoMistralSettingsPresenter >> updateTemperatureFrom: text [
 
 	s isEmpty ifTrue: [
 		model temperature: nil.
-		self notifySettingsChanged.
 		^ self
 	].
 
@@ -317,9 +298,7 @@ ChatPharoMistralSettingsPresenter >> updateTemperatureFrom: text [
 
 	(num < 0.0 or: [ num > 1.0 ])
 		ifTrue: [ self inform: 'Temperature must be between 0.0 and 1.0 (or leave empty).' ]
-		ifFalse: [
-			model temperature: num asFloat.
-			self notifySettingsChanged ].
+		ifFalse: [ model temperature: num asFloat ].
 ]
 
 { #category : 'initialization' }
@@ -329,7 +308,6 @@ ChatPharoMistralSettingsPresenter >> updateTopPFrom: text [
 	trimmed := (text ifNil: [ '' ]) asString trimBoth.
 	trimmed isEmpty ifTrue: [
 		model topP: nil.
-		self notifySettingsChanged.
 		^ self
 	].
 
@@ -341,13 +319,5 @@ ChatPharoMistralSettingsPresenter >> updateTopPFrom: text [
 
 	(number < 0.0 or: [ number > 1.0 ])
 		ifTrue: [ self inform: 'Top P must be between 0.0 and 1.0.' ]
-		ifFalse: [
-			model topP: number asFloat.
-			self notifySettingsChanged ]
-]
-
-{ #category : 'initialization' }
-ChatPharoMistralSettingsPresenter >> whenSettingsChangedDo: aBlock [
-
-	onSettingsChanged := aBlock
+		ifFalse: [ model topP: number asFloat ]
 ]

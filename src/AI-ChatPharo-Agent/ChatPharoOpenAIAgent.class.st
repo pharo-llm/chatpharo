@@ -43,25 +43,6 @@ ChatPharoOpenAIAgent class >> settingsPresenterFor: anAgent [
 ]
 
 { #category : 'accessing' }
-ChatPharoOpenAIAgent >> apiBaseURL [
-
-	^ ZnUrl fromString: self apiBaseURLString
-]
-
-{ #category : 'accessing' }
-ChatPharoOpenAIAgent >> apiBaseURLString [
-
-	| value |
-	value := (host ifNil: [ '' ]) asString trimBoth.
-	value isEmpty ifTrue: [ ^ '' ].
-	((value beginsWith: 'http://') or: [ value beginsWith: 'https://' ])
-		ifFalse: [ value := 'https://' , value ].
-	(value last = $/) ifTrue: [ value := value allButLast ].
-	(value endsWith: '/v1') ifFalse: [ value := value , '/v1' ].
-	^ value
-]
-
-{ #category : 'accessing' }
 ChatPharoOpenAIAgent >> apiKey [
 
 	^ apiKey
@@ -75,12 +56,6 @@ ChatPharoOpenAIAgent >> apiKey: anObject [
 ]
 
 { #category : 'accessing' }
-ChatPharoOpenAIAgent >> apiKeyPlaceholder [
-
-	^ 'sk-...'
-]
-
-{ #category : 'accessing' }
 ChatPharoOpenAIAgent >> configurationErrorMessage [
 
 	^ 'Please complete all required fields.'
@@ -90,11 +65,7 @@ ChatPharoOpenAIAgent >> configurationErrorMessage [
 ChatPharoOpenAIAgent >> getResponseForPrompt: userPrompt [
 
 	| api result max count params accIn accOut |
-	api := ChatPharoTool
-		       baseURL: self apiBaseURL
-		       apiKey: apiKey
-		       system: self systemPrompt
-		       tools: self tools.
+	api := ChatPharoTool openAIWithAPIKey: apiKey system: self systemPrompt tools: self tools.
 	self onToolExecution ifNotNil: [ api onToolExecution: self onToolExecution ].
 	params := self requestParameters copy.
 	temperature ifNotNil: [ params at: 'temperature' put: temperature ].
@@ -134,12 +105,6 @@ ChatPharoOpenAIAgent >> host: anObject [
 ]
 
 { #category : 'accessing' }
-ChatPharoOpenAIAgent >> hostPlaceholder [
-
-	^ 'https://api.openai.com/v1'
-]
-
-{ #category : 'accessing' }
 ChatPharoOpenAIAgent >> initialize [
 
 	super initialize.
@@ -165,11 +130,7 @@ https://platform.openai.com/api-keys'
 ChatPharoOpenAIAgent >> modelNames [
 
 	apiKey isEmpty ifTrue: [ ^ self class modelNames ].
-	^ [
-	  (ChatPharoTool
-		   baseURL: self apiBaseURL
-		   apiKey: apiKey
-		   system: nil) modelNames ]
+	^ [ (ChatPharoTool openAIWithAPIKey: apiKey system: nil) modelNames ]
 		  on: Error
 		  do: [ self class modelNames ]
 ]
@@ -218,7 +179,7 @@ ChatPharoOpenAIAgent >> testConnection [
 
 	^ [
 		  | url client |
-		  url := self apiBaseURLString , '/models'.
+		  url := 'https://' , host , '/v1/models'.
 		  client := ZnClient new url: url.
 		  apiKey ifNotEmpty: [ client headerAt: 'Authorization' put: 'Bearer ' , apiKey ].
 		  client get.

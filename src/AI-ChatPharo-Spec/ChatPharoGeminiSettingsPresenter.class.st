@@ -13,8 +13,7 @@ Class {
 		'testButton',
 		'maxTokensInput',
 		'topPInput',
-		'customParametersInput',
-		'onSettingsChanged'
+		'customParametersInput'
 	],
 	#category : 'AI-ChatPharo-Spec-Agent',
 	#package : 'AI-ChatPharo-Spec',
@@ -124,20 +123,15 @@ ChatPharoGeminiSettingsPresenter >> initializePresenters [
 
 
 	modelDrop := SpDropListPresenter new.
-	modelDrop whenSelectedItemChangedDo: [ :m |
-		model model: m.
-		self notifySettingsChanged ].
+	modelDrop whenSelectedItemChangedDo: [ :m | model model: m ].
 	
 	self refreshModels.
 
-	hostField whenTextChangedDo: [ :t |
-		model host: t.
-		self notifySettingsChanged ].
+	hostField whenTextChangedDo: [ :t | model host: t ].
 
 	apiKeyField whenTextChangedDo: [ :t |
 			model apiKey: t.
-			self refreshModels.
-			self notifySettingsChanged ].
+			self refreshModels ].
 
 	temperatureInput := self newTextInput
 		                    placeholder: '0.0';
@@ -149,8 +143,7 @@ ChatPharoGeminiSettingsPresenter >> initializePresenters [
 				on: Error
 				do: [ ^ self inform: 'Invalid temperature value' ].
 			(num < 0.0 or: [ num > 1.0 ]) ifTrue: [ ^ self inform: 'Temperature must be between 0.0 and 1.0' ].
-			model temperature: num.
-			self notifySettingsChanged ].
+			model temperature: num ].
 
 	maxTokensInput := self newTextInput
 		                  placeholder: 'e.g. 1024';
@@ -195,12 +188,6 @@ ChatPharoGeminiSettingsPresenter >> modelDrop [
 ChatPharoGeminiSettingsPresenter >> modelDrop: anObject [
 
 	modelDrop := anObject
-]
-
-{ #category : 'initialization' }
-ChatPharoGeminiSettingsPresenter >> notifySettingsChanged [
-
-	onSettingsChanged ifNotNil: [ :block | block value ]
 ]
 
 { #category : 'initialization' }
@@ -252,7 +239,6 @@ ChatPharoGeminiSettingsPresenter >> updateCustomParametersFrom: text [
 	trimmed := (text ifNil: [ '' ]) asString trimBoth.
 	trimmed isEmpty ifTrue: [
 		model customParameters: Dictionary new.
-		self notifySettingsChanged.
 		^ self
 	].
 
@@ -263,9 +249,7 @@ ChatPharoGeminiSettingsPresenter >> updateCustomParametersFrom: text [
 		].
 
 	(parsed isDictionary)
-		ifTrue: [
-			model customParameters: parsed.
-			self notifySettingsChanged ]
+		ifTrue: [ model customParameters: parsed ]
 		ifFalse: [ self inform: 'Custom parameters must be a JSON object.' ]
 ]
 
@@ -276,7 +260,6 @@ ChatPharoGeminiSettingsPresenter >> updateMaxTokensFrom: text [
 	trimmed := (text ifNil: [ '' ]) asString trimBoth.
 	trimmed isEmpty ifTrue: [
 		model maxTokens: nil.
-		self notifySettingsChanged.
 		^ self
 	].
 
@@ -288,9 +271,7 @@ ChatPharoGeminiSettingsPresenter >> updateMaxTokensFrom: text [
 
 	number isInteger
 		ifFalse: [ self inform: 'Max tokens must be a whole number.' ]
-		ifTrue: [
-			model maxTokens: number.
-			self notifySettingsChanged ]
+		ifTrue: [ model maxTokens: number ]
 ]
 
 { #category : 'initialization' }
@@ -300,7 +281,6 @@ ChatPharoGeminiSettingsPresenter >> updateTopPFrom: text [
 	trimmed := (text ifNil: [ '' ]) asString trimBoth.
 	trimmed isEmpty ifTrue: [
 		model topP: nil.
-		self notifySettingsChanged.
 		^ self
 	].
 
@@ -312,13 +292,5 @@ ChatPharoGeminiSettingsPresenter >> updateTopPFrom: text [
 
 	(number < 0.0 or: [ number > 1.0 ])
 		ifTrue: [ self inform: 'Top P must be between 0.0 and 1.0.' ]
-		ifFalse: [
-			model topP: number asFloat.
-			self notifySettingsChanged ]
-]
-
-{ #category : 'initialization' }
-ChatPharoGeminiSettingsPresenter >> whenSettingsChangedDo: aBlock [
-
-	onSettingsChanged := aBlock
+		ifFalse: [ model topP: number asFloat ]
 ]

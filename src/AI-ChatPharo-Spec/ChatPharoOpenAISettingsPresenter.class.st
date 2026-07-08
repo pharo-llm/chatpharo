@@ -7,8 +7,7 @@ Class {
 		'modelDrop',
 		'model',
 		'temperatureInput',
-		'testButton',
-		'onSettingsChanged'
+		'testButton'
 	],
 	#category : 'AI-ChatPharo-Spec-Agent',
 	#package : 'AI-ChatPharo-Spec',
@@ -38,7 +37,7 @@ ChatPharoOpenAISettingsPresenter >> defaultLayout [
 		           yourself.
 	keyRow := SpBoxLayout newHorizontal
 		          spacing: 8;
-		          add: (self newLabel label: 'API Key / Token:') expand: false;
+		          add: (self newLabel label: 'API Key:') expand: false;
 		          add: apiKeyField expand: true;
 		          yourself.
 	modelRow := SpBoxLayout newHorizontal
@@ -48,7 +47,7 @@ ChatPharoOpenAISettingsPresenter >> defaultLayout [
 		            yourself.
 	tempRow := SpBoxLayout newHorizontal
 		           spacing: 8;
-		           add: (self newLabel label: 'Temperature (0.0 – 2.0):') expand: false;
+		           add: (self newLabel label: 'Temperature (0.0 – 1.0):') expand: false;
 		           add: temperatureInput expand: true;
 		           yourself.
 	mainLayout := SpBoxLayout newTopToBottom
@@ -79,34 +78,22 @@ ChatPharoOpenAISettingsPresenter >> hostField: anObject [
 { #category : 'accessing - model' }
 ChatPharoOpenAISettingsPresenter >> initializePresenters [
 
-	| hostPlaceholder apiKeyPlaceholder |
 	super initializePresenters.
-	hostPlaceholder := (model respondsTo: #hostPlaceholder)
-		                   ifTrue: [ model hostPlaceholder ]
-		                   ifFalse: [ 'https://api.openai.com/v1' ].
-	apiKeyPlaceholder := (model respondsTo: #apiKeyPlaceholder)
-		                     ifTrue: [ model apiKeyPlaceholder ]
-		                     ifFalse: [ 'sk-...' ].
 	hostField := self newTextInput
-		             placeholder: hostPlaceholder;
+		             placeholder: 'api.openai.com';
 		             text: model host.
 	apiKeyField := self newTextInput bePassword
-		               placeholder: apiKeyPlaceholder;
+		               placeholder: 'sk-...';
 		               text: (model apiKey isEmpty
 				                ifTrue: [ '' ]
 				                ifFalse: [ String new: model apiKey size withAll: $* ]).
 	modelDrop := SpDropListPresenter new.
-	modelDrop whenSelectedItemChangedDo: [ :m |
-		model model: m.
-		self notifySettingsChanged ].
+	modelDrop whenSelectedItemChangedDo: [ :m | model model: m ].
 	self refreshModels.
-	hostField whenTextChangedDo: [ :t |
-		model host: t.
-		self notifySettingsChanged ].
+	hostField whenTextChangedDo: [ :t | model host: t ].
 	apiKeyField whenTextChangedDo: [ :t |
 			model apiKey: t.
-			self refreshModels.
-			self notifySettingsChanged ].
+			self refreshModels ].
 	temperatureInput := self newTextInput
 		                    placeholder: '0.7 (leave empty for default)';
 		                    text: (model temperature ifNil: [ '' ] ifNotNil: [ model temperature asString ]);
@@ -135,12 +122,6 @@ ChatPharoOpenAISettingsPresenter >> modelDrop [
 ChatPharoOpenAISettingsPresenter >> modelDrop: anObject [
 
 	modelDrop := anObject
-]
-
-{ #category : 'initialization' }
-ChatPharoOpenAISettingsPresenter >> notifySettingsChanged [
-
-	onSettingsChanged ifNotNil: [ :block | block value ]
 ]
 
 { #category : 'accessing - model' }
@@ -200,22 +181,13 @@ ChatPharoOpenAISettingsPresenter >> updateTemperatureFrom: text [
 	s := (text ifNil: [ '' ]) asString trimBoth.
 	s isEmpty ifTrue: [
 			model temperature: nil.
-			self notifySettingsChanged.
 			^ self ].
 	[ num := Number readFrom: s readStream ]
 		on: Error
 		do: [
-				self inform: 'Temperature must be a number between 0.0 and 2.0 (or leave empty).'.
+				self inform: 'Temperature must be a number between 0.0 and 1.0 (or leave empty).'.
 				^ self ].
-	(num < 0.0 or: [ num > 2.0 ])
-		ifTrue: [ self inform: 'Temperature must be between 0.0 and 2.0 (or leave empty).' ]
-		ifFalse: [
-			model temperature: num asFloat.
-			self notifySettingsChanged ]
-]
-
-{ #category : 'initialization' }
-ChatPharoOpenAISettingsPresenter >> whenSettingsChangedDo: aBlock [
-
-	onSettingsChanged := aBlock
+	(num < 0.0 or: [ num > 1.0 ])
+		ifTrue: [ self inform: 'Temperature must be between 0.0 and 1.0 (or leave empty).' ]
+		ifFalse: [ model temperature: num asFloat ]
 ]

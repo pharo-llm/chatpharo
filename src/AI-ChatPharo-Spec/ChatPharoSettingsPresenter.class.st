@@ -95,18 +95,18 @@ ChatPharoSettingsPresenter >> connectPresenters [
 					self ].
 			userAccepted ifTrue: [
 					model useApi: apiClass.
-					self commitSettingsAndSynchronizeChats.
+					chatPharo ifNotNil: [ chatPharo synchronizeChatsWithSettingsAgent ].
 					apiSettingsContainer removeAll.
 					newPresenter := apiClass settingsPresenterFor: model agent.
-					self configureApiSettingsPresenter: newPresenter.
-					self commitSettingsAndSynchronizeChats.
+					newPresenter ifNotNil: [ apiSettingsContainer add: newPresenter ].
 					systemPromptInput text: model agent systemPrompt ] ].
 	systemPromptInput whenTextChangedDo: [ :text |
 			text ~= ChatPharoAgent defaultSystemPrompt ifTrue: [
 					(ChatPharoSafetyAdvisor confirmPromptModificationOn: self)
 						ifTrue: [
 								model agent systemPrompt: text.
-								self commitSettingsAndSynchronizeChats ]
+								ChatPharoSettings setDefault: model.
+								ChatPharoSettings saveDefault ]
 						ifFalse: [ systemPromptInput text: model agent systemPrompt ] ] ].
 
 	maxIterationsInput whenTextChangedDo: [ :t |
@@ -223,24 +223,6 @@ ChatPharoSettingsPresenter >> connectPresenters [
 						(ChatPharoSafetyAdvisor confirmToolDisableOn: self)
 							ifTrue: [ model disableBrowserTool: 'open_playground' ]
 							ifFalse: [ playgroundToolCheckBox state: true ] ] ]
-]
-
-{ #category : 'initialization' }
-ChatPharoSettingsPresenter >> commitSettingsAndSynchronizeChats [
-
-	ChatPharoSettings setDefault: model.
-	ChatPharoSettings saveDefault.
-	chatPharo ifNotNil: [ chatPharo synchronizeChatsWithSettingsAgent ]
-]
-
-{ #category : 'initialization' }
-ChatPharoSettingsPresenter >> configureApiSettingsPresenter: aPresenter [
-
-	aPresenter ifNil: [ ^ self ].
-	(aPresenter respondsTo: #whenSettingsChangedDo:) ifTrue: [
-		aPresenter whenSettingsChangedDo: [
-			self commitSettingsAndSynchronizeChats ] ].
-	apiSettingsContainer add: aPresenter
 ]
 
 { #category : 'layout' }
@@ -845,7 +827,7 @@ ChatPharoSettingsPresenter >> refreshApiSettings [
 	| newPresenter |
 	apiSettingsContainer removeAll.
 	newPresenter := model agent class settingsPresenterFor: model agent.
-	self configureApiSettingsPresenter: newPresenter.
+	newPresenter ifNotNil: [ apiSettingsContainer add: newPresenter ].
 	apiSettingsContainer changed 
 ]
 
@@ -875,7 +857,8 @@ ChatPharoSettingsPresenter >> removeIcebergExtensionTab [
 { #category : 'initialization' }
 ChatPharoSettingsPresenter >> saveSettings [
 
-	self commitSettingsAndSynchronizeChats.
+	ChatPharoSettings setDefault: model.
+	ChatPharoSettings saveDefault.
 	self inform: 'Settings saved.'
 ]
 
