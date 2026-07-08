@@ -97,7 +97,7 @@ BaselineOfAIChatPharo >> baseline: spec [
 	<baseline>
 	spec for: #common do: [
 			spec postLoadDoIt: #postLoad.
-			spec baseline: 'PharoLLMIcon' with: [ spec repository: 'github://pharo-llm/pharo-llm-icon:main/src' ].
+			"spec baseline: 'PharoLLMIcon' with: [ spec repository: 'github://pharo-llm/pharo-llm-icon:main/src' ]."
 			spec baseline: 'NeoJSON' with: [ spec repository: 'github://svenvc/NeoJSON/repository' ].
 			spec baseline: 'LLMPharoMCP' with: [ spec repository: 'github://pharo-llm/pharo-mcp:main/src' ].
 
