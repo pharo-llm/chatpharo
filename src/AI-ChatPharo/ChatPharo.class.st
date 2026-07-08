@@ -381,5 +381,7 @@ ChatPharo >> synchronizeChatsWithSettingsAgent [
 			chatAgent := (configuredAgent isKindOf: ChatPharoAgent)
 				             ifTrue: [ configuredAgent copyForChat ]
 				             ifFalse: [ configuredAgent ].
-			chat agent: chatAgent ]
+			chat
+				agent: chatAgent;
+				clearCache ]
 ]

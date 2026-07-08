@@ -56,7 +56,9 @@ ChatPharoSettingsTest >> testAvailableApisIncludesDefaultAgents [
             ChatPharoNullAgent.
             ChatPharoGeminiAgent.
             ChatPharoOllamaAgent.
-            ChatPharoMistralAgent })
+            ChatPharoMistralAgent.
+            ChatPharoOpenRouterAgent.
+            ChatPharoGroqAgent })
 ]
 
 { #category : 'tests' }

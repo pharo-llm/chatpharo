@@ -68,6 +68,12 @@ ChatPharoSettingsBackendTest >> testAvailableApisIncludesGeminiAgent [
 ]
 
 { #category : 'running' }
+ChatPharoSettingsBackendTest >> testAvailableApisIncludesGroqAgent [
+
+    self assert: (settings availableApis includes: ChatPharoGroqAgent).
+]
+
+{ #category : 'running' }
 ChatPharoSettingsBackendTest >> testAvailableApisIncludesNullAgent [
 
     self assert: (settings availableApis includes: ChatPharoNullAgent).
@@ -77,6 +83,12 @@ ChatPharoSettingsBackendTest >> testAvailableApisIncludesNullAgent [
 ChatPharoSettingsBackendTest >> testAvailableApisIncludesOllamaAgent [
 
     self assert: (settings availableApis includes: ChatPharoOllamaAgent).
+]
+
+{ #category : 'running' }
+ChatPharoSettingsBackendTest >> testAvailableApisIncludesOpenRouterAgent [
+
+    self assert: (settings availableApis includes: ChatPharoOpenRouterAgent).
 ]
 
 { #category : 'running' }
