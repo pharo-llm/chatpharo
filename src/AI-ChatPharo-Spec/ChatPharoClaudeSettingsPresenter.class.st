@@ -10,7 +10,8 @@ Class {
 		'modelDrop',
 		'model',
 		'temperatureInput',
-		'testButton'
+		'testButton',
+		'onSettingsChanged'
 	],
 	#category : 'AI-ChatPharo-Spec-Agent',
 	#package : 'AI-ChatPharo-Spec',
@@ -98,13 +99,18 @@ ChatPharoClaudeSettingsPresenter >> initializePresenters [
 				                ifFalse: (String new: model apiKey size withAll: $*)).
 
 	modelDrop := SpDropListPresenter new.
-	modelDrop whenSelectedItemChangedDo: [ :m | model model: m ].
+	modelDrop whenSelectedItemChangedDo: [ :m |
+		model model: m.
+		self notifySettingsChanged ].
 	
 	self refreshModels.
-	hostField whenTextChangedDo: [ :t | model host: t ].
+	hostField whenTextChangedDo: [ :t |
+		model host: t.
+		self notifySettingsChanged ].
 	apiKeyField whenTextChangedDo: [ :t |
 			model apiKey: t.
-			self refreshModels ].
+			self refreshModels.
+			self notifySettingsChanged ].
 	
 	temperatureInput := self newTextInput
 		                    placeholder: '0.7 (leave empty for default)';
@@ -136,6 +142,12 @@ ChatPharoClaudeSettingsPresenter >> modelDrop [
 ChatPharoClaudeSettingsPresenter >> modelDrop: anObject [
 
 	modelDrop := anObject
+]
+
+{ #category : 'initialization' }
+ChatPharoClaudeSettingsPresenter >> notifySettingsChanged [
+
+	onSettingsChanged ifNotNil: [ :block | block value ]
 ]
 
 { #category : 'accessing' }
@@ -200,6 +212,7 @@ ChatPharoClaudeSettingsPresenter >> updateTemperatureFrom: text [
 
 	s isEmpty ifTrue: [
 		model temperature: nil.
+		self notifySettingsChanged.
 		^ self
 	].
 
@@ -211,5 +224,13 @@ ChatPharoClaudeSettingsPresenter >> updateTemperatureFrom: text [
 
 	(num < 0.0 or: [ num > 1.0 ])
 		ifTrue: [ self inform: 'Temperature must be between 0.0 and 1.0 (or leave empty).' ]
-		ifFalse: [ model temperature: num asFloat ].
+		ifFalse: [
+			model temperature: num asFloat.
+			self notifySettingsChanged ].
+]
+
+{ #category : 'initialization' }
+ChatPharoClaudeSettingsPresenter >> whenSettingsChangedDo: aBlock [
+
+	onSettingsChanged := aBlock
 ]

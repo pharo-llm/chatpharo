@@ -87,6 +87,28 @@ ChatPharoTest >> testSetAndGetMessages [
 ]
 
 { #category : 'running' }
+ChatPharoTest >> testSynchronizeChatsWithSettingsAgentUpdatesOpenChat [
+
+	| chat oldAgent cache |
+	app settings useApi: ChatPharoNullAgent.
+	app settings useModel: 'old-model'.
+	app newChat.
+	chat := app chats first.
+	oldAgent := chat agent.
+	chat addUserMessage: 'hello'.
+	cache := chat instVarNamed: #cache.
+	cache at: 'hello' put: 'old answer'.
+
+	app settings useModel: 'new-model'.
+	app synchronizeChatsWithSettingsAgent.
+
+	self deny: chat agent == oldAgent.
+	self assert: chat agent model equals: 'new-model'.
+	self assert: (chat historyPromptPrefix includesSubstring: 'hello').
+	self assert: cache isEmpty
+]
+
+{ #category : 'running' }
 ChatPharoTest >> testUseApiSwitchesAgent [
 
 	| otherApi |
