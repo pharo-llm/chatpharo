@@ -85,9 +85,18 @@ BaselineOfAIChatPharo class >> showFirstLaunchSetupIfNeeded [
 	[
 		(Delay forMilliseconds: 500) wait.
 		World ifNotNil: [
-			ChatPharoSettings default isConfigured ifFalse: [
-				WorldMorph doOneCycle.
-				ChatPharoSetupPresenter openIfNeeded ] ]
+			| openSetup readinessPresenterClass |
+			openSetup := [
+				ChatPharoSettings default isConfigured ifFalse: [
+					WorldMorph doOneCycle.
+					ChatPharoSetupPresenter openIfNeeded ] ].
+			readinessPresenterClass := Smalltalk
+				                         at: #ChatPharoPharoInferReadinessPresenter
+				                         ifAbsent: [ nil ].
+			readinessPresenterClass
+				ifNil: [ openSetup value ]
+				ifNotNil: [ :presenterClass |
+					presenterClass openIfNeededThen: openSetup ] ]
 	] fork
 ]
 
@@ -100,10 +109,11 @@ BaselineOfAIChatPharo >> baseline: spec [
 			spec baseline: 'PharoLLMIcon' with: [ spec repository: 'github://pharo-llm/pharo-llm-icon:main/src' ].
 			spec baseline: 'NeoJSON' with: [ spec repository: 'github://svenvc/NeoJSON/repository' ].
 			spec baseline: 'LLMPharoMCP' with: [ spec repository: 'github://pharo-llm/pharo-mcp:main/src' ].
+			spec baseline: 'AIPharoInfer' with: [ spec repository: 'github://pharo-llm/pharo-infer:main/src' ].
 
 			spec package: 'AI-ChatPharo'.
-			spec package: 'AI-ChatPharo-Agent' with: [ spec requires: #( 'AI-ChatPharo' ) ].
-			spec package: 'AI-ChatPharo-Spec' with: [ spec requires: #( 'AI-ChatPharo' ) ].
+			spec package: 'AI-ChatPharo-Agent' with: [ spec requires: #( 'AI-ChatPharo' 'AI-PharoInfer' ) ].
+			spec package: 'AI-ChatPharo-Spec' with: [ spec requires: #( 'AI-ChatPharo' 'AI-ChatPharo-Agent' ) ].
 			spec package: 'AI-ChatPharo-Tools' with: [ spec requires: #( 'AI-ChatPharo' ) ].
 			spec package: 'AI-ChatPharo-History' with: [ spec requires: #( 'AI-ChatPharo' ) ].
 			spec package: 'AI-ChatPharo-Env' with: [ spec requires: #( 'AI-ChatPharo' ) ].

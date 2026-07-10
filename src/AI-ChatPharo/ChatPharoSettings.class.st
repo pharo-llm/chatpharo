@@ -402,6 +402,7 @@ ChatPharoSettings >> availableApis [
 		  ChatPharoNullAgent.
 		  ChatPharoGeminiAgent.
 		  ChatPharoOllamaAgent.
+		  ChatPharoPharoInferAgent.
 		  ChatPharoLMStudioAgent.
 		  ChatPharoMistralAgent.
 		  ChatPharoClaudeAgent.

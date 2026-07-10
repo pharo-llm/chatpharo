@@ -24,6 +24,41 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Checkout PharoInfer
+        uses: actions/checkout@v7
+        with:
+          repository: pharo-llm/pharo-infer
+          path: pharo-infer
+
+      - name: Set up MSVC
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build PharoInfer native runtime
+        run: sh pharo-infer/scripts/build-native.sh
+        shell: bash
+        timeout-minutes: 30
+
+      - name: Verify PharoInfer native runtime
+        run: |
+          set -euo pipefail
+          case "$RUNNER_OS" in
+            macOS)
+              test -f "$HOME/pharo-infer-native/lib/libai_llama.dylib"
+              ;;
+            Linux)
+              test -f "$HOME/pharo-infer-native/lib/libai_llama.so"
+              ;;
+            Windows)
+              test -f "$HOME/pharo-infer-native/lib/ai_llama.dll"
+              ;;
+            *)
+              echo "Unsupported runner OS: $RUNNER_OS" >&2
+              exit 1
+              ;;
+          esac
+        shell: bash
+
       - uses: hpi-swa/setup-smalltalkCI@v1
         with:
           smalltalk-image: ${{ matrix.smalltalk }}

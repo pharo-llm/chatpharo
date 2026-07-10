@@ -86,6 +86,12 @@ ChatPharoSettingsBackendTest >> testAvailableApisIncludesOllamaAgent [
 ]
 
 { #category : 'running' }
+ChatPharoSettingsBackendTest >> testAvailableApisIncludesPharoInferAgent [
+
+    self assert: (settings availableApis includes: ChatPharoPharoInferAgent).
+]
+
+{ #category : 'running' }
 ChatPharoSettingsBackendTest >> testAvailableApisIncludesOpenRouterAgent [
 
     self assert: (settings availableApis includes: ChatPharoOpenRouterAgent).
