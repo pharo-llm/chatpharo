@@ -112,7 +112,7 @@ BaselineOfAIChatPharo >> baseline: spec [
 			spec baseline: 'AIPharoInfer' with: [ spec repository: 'github://pharo-llm/pharo-infer:main/src' ].
 
 			spec package: 'AI-ChatPharo'.
-			spec package: 'AI-ChatPharo-Agent' with: [ spec requires: #( 'AI-ChatPharo' 'AI-PharoInfer' ) ].
+			spec package: 'AI-ChatPharo-Agent' with: [ spec requires: #( 'AI-ChatPharo' 'AI-ChatPharo-History' 'AIPharoInfer' ) ].
 			spec package: 'AI-ChatPharo-Spec' with: [ spec requires: #( 'AI-ChatPharo' 'AI-ChatPharo-Agent' ) ].
 			spec package: 'AI-ChatPharo-Tools' with: [ spec requires: #( 'AI-ChatPharo' ) ].
 			spec package: 'AI-ChatPharo-History' with: [ spec requires: #( 'AI-ChatPharo' ) ].
