@@ -63,3 +63,34 @@ See **sandbox.md**.
 - Message flow: **message-flow.md**
 - Sandbox: **sandbox.md**
 - MCP: **mcp.md**
+
+## Tool providers
+
+A group of tools is a `ChatPharoToolProvider` subclass that answers `title`, `summary` and `tools`. Nothing else is registered: its tools appear in chats, in **Settings → Application → Tools** and for terminal agents.
+
+| Provider | Tools |
+|---|---|
+| `ChatPharoNavigationTools` | `find_senders`, `find_implementors`, `find_class_references`, `find_classes`, `get_method_source`, `run_tests` |
+| `ChatPharoPlanTools` | `propose_plan`, `update_plan_step`, `get_plan` (see **plans.md**) |
+| `ChatPharoUITools` | `list_windows`, `describe_window`, `click_widget`, `type_text`, `select_item`, `open_browser`, `close_window` |
+
+```smalltalk
+MyTools >> tools [
+	^ { (self
+		   toolNamed: 'count_classes'
+		   description: 'Counts the classes of a package.'
+		   properties: (Dictionary with: 'package' -> (self property: 'string' description: 'Package name'))
+		   required: #( 'package' )
+		   do: [ :arguments | Dictionary with: 'count' -> (arguments at: 'package') asPackage definedClasses size ]) }
+]
+```
+
+Send `beMutating` to a tool that changes the image, opens windows or runs code: the user is then asked before each call. Results are capped and say when they are truncated.
+
+## Navigating a user interface
+
+`describe_window` answers the controls of a Spec window — buttons, check boxes, text fields, lists, drop-downs, tabs, labels — each with an id, its text and its state. `click_widget`, `type_text` and `select_item` take that id or the exact text of the control. The model works on the structure of the UI, not on pixels, so it can drive your own Spec application. Windows not built with Spec are listed by title only; use `open_browser` for the System Browser.
+
+## Upgrades
+
+Settings remember which built-in tools they have seen. A tool shipped by a new version is enabled on first sight; a tool you disabled stays disabled.

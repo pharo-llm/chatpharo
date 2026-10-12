@@ -183,16 +183,16 @@ ChatPharoBenchmarkRunner >> executeEcosystemCaseFor: aCase [
 				n := [ each functionName ] on: Error do: [ nil ].
 				n ifNotNil: [ toolCallNames add: n asString ] ] ] ].
 
-	rawText := [ response content ] on: Error do: [ response asString ].
-	rawText ifNil: [ rawText := '' ].
+	"Agents answer the written text; the full reply with its token usage is their #response."
+	rawText := (response ifNil: [ '' ]) asString.
 
 	^ Dictionary new
 		  at: 'rawResponse' put: rawText;
 		  at: 'toolCallCount' put: toolCallCount;
 		  at: 'toolCallNames' put: toolCallNames asArray;
-		  at: 'promptTokens' put: ([ response inputTokens ] on: Error do: [ nil ]);
-		  at: 'completionTokens' put: ([ response outputTokens ] on: Error do: [ nil ]);
-		  at: 'totalTokens' put: ([ response totalTokens ] on: Error do: [ nil ]);
+		  at: 'promptTokens' put: ([ agent response inputTokens ] on: Error do: [ nil ]);
+		  at: 'completionTokens' put: ([ agent response outputTokens ] on: Error do: [ nil ]);
+		  at: 'totalTokens' put: ([ agent response totalTokens ] on: Error do: [ nil ]);
 		  yourself
 ]
 

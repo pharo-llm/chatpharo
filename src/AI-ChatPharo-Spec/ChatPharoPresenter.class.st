@@ -13,7 +13,8 @@ Class {
 		'multiversStatusLabel',
 		'disclaimerLabel',
 		'chatCounter',
-		'connectionMonitorProcess'
+		'connectionMonitorProcess',
+		'chatsByPage'
 	],
 	#category : 'AI-ChatPharo-Spec-Core',
 	#package : 'AI-ChatPharo-Spec',
@@ -23,44 +24,41 @@ Class {
 { #category : 'adding' }
 ChatPharoPresenter >> addNewChat [
 
-	| newPage chatName newChat |
-	chatCounter := chatCounter + 1.
-	chatName := 'Chat ' , chatCounter asString.
-	model ifNotNil: [ model newChat ].
-	newChat := model ifNotNil: [ model chats last ].
-	newPage := SpNotebookPage
-		           title: chatName
-		           icon: (self iconNamed: #announcement)
-		           provider: [ model ifNotNil: [ model chats last presenter ] ifNil: [ nil ] ].
-	newPage beCloseable.
-		
-	newChat ifNotNil: [ 
-		newChat whenTitleGeneratedDo: [ :title |
-			UIManager default defer: [ 
-				newPage title: title.
-				newPage notifyPropertyChanged: #title ] ] ].
-	notebook addPage: newPage.
-	notebook selectPage: newPage.
+	| chat |
+	chat := model newChat.
+	self addPageForChat: chat.
 	ChatPharoLogger logFrontend: 'UI added new chat tab' details: (Dictionary new
-			 at: 'title' put: chatName;
+			 at: 'title' put: chat title;
 			 at: 'totalTabs' put: notebook pages size;
 			 at: 'chatCounter' put: chatCounter;
 			 yourself)
 ]
 
+{ #category : 'adding' }
+ChatPharoPresenter >> addPageForChat: aChat [
+	"Show aChat in a tab of its own. The tab is bound to this very chat: a page that looked up
+	 'the last chat' when it was drawn showed the wrong, empty conversation after another tab was added."
+
+	| page chatPresenter |
+	chatCounter := chatCounter + 1.
+	aChat title ifNil: [ aChat title: 'Chat ' , chatCounter asString ].
+	chatPresenter := aChat presenter.
+	page := SpNotebookPage title: aChat title icon: (self iconNamed: #announcement) provider: [ chatPresenter ].
+	page beCloseable.
+	aChat whenTitleGeneratedDo: [ :title | self defer: [ page title: title ] ].
+	chatsByPage at: page put: aChat.
+	notebook addPage: page.
+	notebook selectPage: page.
+	^ page
+]
+
 { #category : 'layout' }
 ChatPharoPresenter >> closeChat: aPage [
-    | pageIndex |
-    pageIndex := notebook pages indexOf: aPage ifAbsent: [ ^ self ].
-    notebook removePage: aPage.
-    model removeChatAt: pageIndex.
-    ChatPharoLogger logFrontend: 'UI closed chat tab'
-        details: (Dictionary new
-                at: 'title' put: aPage title;
-                at: 'index' put: pageIndex;
-                at: 'remainingTabs' put: notebook pages size;
-                yourself).
-    notebook pages ifEmpty: [ self addNewChat ]
+
+	(notebook pages includes: aPage) ifFalse: [ ^ self ].
+	notebook removePage: aPage.
+	self forgetPage: aPage.
+	notebook pages ifEmpty: [ self addNewChat ]
 ]
 
 { #category : 'layout' }
@@ -83,30 +81,22 @@ ChatPharoPresenter >> deleteAllChats [
 	| removed |
 	(self confirm: 'Are you sure you want to delete all chats?') ifFalse: [ ^ self ].
 	removed := notebook pages size.
+	chatsByPage removeAll.
 	notebook pages copy do: [ :page | notebook removePage: page ].
 	model removeAllChats.
-	ChatPharoLogger logFrontend: 'UI removed all chat tabs'
-            details: (Dictionary new
-                    at: 'tabsRemoved' put: removed;
-                    yourself)
+	ChatPharoLogger logFrontend: 'UI removed all chat tabs' details: (Dictionary new
+			 at: 'tabsRemoved' put: removed;
+			 yourself).
+	notebook pages ifEmpty: [ self addNewChat ]
 ]
 
 { #category : 'initialization' }
 ChatPharoPresenter >> deleteChat: aPageTitle [
 
-	| pageToDelete pageIndex |
-	pageToDelete := notebook pages detect: [ :page | page title = aPageTitle ] ifNone: [ ^ self ].
-
+	| page |
+	page := notebook pages detect: [ :each | each title = aPageTitle ] ifNone: [ ^ self ].
 	(self confirm: 'Are you sure you want to delete this chat?') ifFalse: [ ^ self ].
-	pageIndex := notebook pages indexOf: pageToDelete ifAbsent: [ ^ self ].
-	notebook removePage: pageToDelete.
-	model removeChatAt: pageIndex.
-	ChatPharoLogger logFrontend: 'UI removed chat tab'
-                details: (Dictionary new
-                        at: 'title' put: aPageTitle;
-                        at: 'index' put: pageIndex;
-                        at: 'remainingTabs' put: notebook pages size;
-                        yourself)
+	self closeChat: page
 ]
 
 { #category : 'initialization' }
@@ -124,17 +114,25 @@ ChatPharoPresenter >> deleteSelectedChat [
 	self deleteChat: notebook selectedPage title
 ]
 
+{ #category : 'private' }
+ChatPharoPresenter >> forgetPage: aPage [
+	"The chat of a closed tab leaves the session. Safe to call twice for the same page."
+
+	(chatsByPage removeKey: aPage ifAbsent: [ nil ]) ifNotNil: [ :chat | model removeChat: chat ]
+]
+
 { #category : 'initialization' }
 ChatPharoPresenter >> initializePresenters [
 
+	"Opened without an application, I show a transient session of my own."
+	model ifNil: [ model := ChatPharo new ].
 	chatCounter := 0.
+	chatsByPage := IdentityDictionary new.
 
 	notebook := self newNotebook.
 	notebook whenPageRemovedDo: [ :page |
-			| pageIndex |
-			pageIndex := notebook pages indexOf: page ifAbsent: [ nil ].
-			pageIndex ifNotNil: [ model removeChatAt: pageIndex ].
-			notebook pages ifEmpty: [ self addNewChat ] ].
+		self forgetPage: page.
+		notebook pages ifEmpty: [ self addNewChat ] ].
 	toolbar := self newToolbar.
 	disclaimerLabel := self newLabel
 		                   label: 'ChatPharo may make mistakes. Check important info.';
@@ -198,6 +196,13 @@ ChatPharoPresenter >> initializePresenters [
 			 action: [ self openTutorial ];
 			 yourself).
 
+	toolbar add: (SpToolbarButtonPresenter new
+			 label: 'Tasks';
+			 icon: (self iconNamed: #smallProfile);
+			 help: 'Open the Task Manager: plans proposed by ChatPharo and their progress';
+			 action: [ self openTaskManager ];
+			 yourself).
+
 	toolbar add: multiversStatusLabel.
 	self updateMultiversStatus.
 
@@ -212,7 +217,7 @@ ChatPharoPresenter >> initializePresenters [
 	ChatPharoLogger logFrontend: 'Main presenter initialized' details: (Dictionary new
 			 at: 'initialTabs' put: notebook pages size;
 			 yourself).
-	notebook pages ifEmpty: [ self addNewChat ]
+	self showSessionChats
 ]
 
 { #category : 'initialization' }
@@ -230,45 +235,29 @@ ChatPharoPresenter >> initializeWindow: aWindowPresenter [
 ChatPharoPresenter >> loadChat [
 	"Load a chat from a JSON file into a new tab"
 
-	| fileReference jsonData newPage chatName |
+	| fileReference chat |
 	fileReference := UIManager default
-		chooseExistingFileReference: 'Load chat'
-		extensions: #( 'json' )
-		path: FileLocator home.
-
+		                 chooseExistingFileReference: 'Load chat'
+		                 extensions: #( 'json' )
+		                 path: FileLocator home.
 	fileReference ifNil: [ ^ self ].
-
 	[
-		jsonData := fileReference readStream contents.
-		fileReference readStream close.
-
-		"Create a new chat and import the JSON"
-		chatName := fileReference basenameWithoutExtension.
-		model newChat.
-		model chats last importFromJson: jsonData.
-
-		"Add the new page to notebook"
-		newPage := SpNotebookPage
-			title: chatName
-			icon: (self iconNamed: #announcement)
-			provider: [ model chats last presenter ].
-		newPage beCloseable.
-		notebook addPage: newPage.
-		notebook selectPage: newPage.
-
-		ChatPharoLogger logFrontend: 'Chat loaded from file'
-			details: (Dictionary new
-				at: 'path' put: fileReference fullName;
-				at: 'chatTitle' put: chatName;
-				at: 'totalTabs' put: notebook pages size;
-				yourself)
-	] on: Error do: [ :ex |
-		self inform: 'Failed to load chat: ', ex messageText.
-		ChatPharoLogger logFrontend: 'Chat load failed'
-			details: (Dictionary new
-				at: 'path' put: fileReference fullName;
-				at: 'error' put: ex messageText;
-				yourself) ]
+		chat := model newChat.
+		chat title: fileReference basenameWithoutExtension.
+		chat importFromJson: fileReference contents.
+		self addPageForChat: chat.
+		ChatPharoLogger logFrontend: 'Chat loaded from file' details: (Dictionary new
+				 at: 'path' put: fileReference fullName;
+				 at: 'chatTitle' put: chat title;
+				 at: 'totalTabs' put: notebook pages size;
+				 yourself) ]
+		on: Error
+		do: [ :ex |
+			self inform: 'Failed to load chat: ' , ex messageText.
+			ChatPharoLogger logFrontend: 'Chat load failed' details: (Dictionary new
+					 at: 'path' put: fileReference fullName;
+					 at: 'error' put: ex messageText;
+					 yourself) ]
 ]
 
 { #category : 'initialization' }
@@ -284,29 +273,15 @@ ChatPharoPresenter >> notebook: anObject [
 ]
 
 { #category : 'initialization' }
-ChatPharoPresenter >> openHelp [ 
+ChatPharoPresenter >> openHelp [
 	"Open the help presenter with context-aware assistance"
 
-	| currentChatPresenter currentText helpPresenter |
-	"Get the current chat context if available"
-	currentChatPresenter := notebook selectedPage
-		ifNotNil: [ :page | page presenterProvider value ]
-		ifNil: [ nil ].
-
-	currentText := currentChatPresenter
-		ifNotNil: [ currentChatPresenter messageText ]
-		ifNil: [ '' ].
-
-	"Create and open help presenter with context"
+	| helpPresenter |
 	helpPresenter := ChatPharoHelpPresenter new.
-	helpPresenter currentContext: currentText.
+	helpPresenter currentContext: ''.
 	helpPresenter chatPharo: model.
 	helpPresenter open.
-
-	ChatPharoLogger logFrontend: 'Help dialog opened'
-		details: (Dictionary new
-			at: 'hasContext' put: currentText isNotEmpty;
-			yourself)
+	ChatPharoLogger logFrontend: 'Help dialog opened' details: Dictionary new
 ]
 
 { #category : 'initialization' }
@@ -320,6 +295,12 @@ ChatPharoPresenter >> openSettings [
                 details: (Dictionary new
                         at: 'activeAgent' put: (ChatPharoLogger agentNameFor: model settings agent);
                         yourself)
+]
+
+{ #category : 'initialization' }
+ChatPharoPresenter >> openTaskManager [
+
+	ChatPharoTaskManagerPresenter new open
 ]
 
 { #category : 'initialization' }
@@ -339,35 +320,37 @@ ChatPharoPresenter >> openTutorial [
 
 { #category : 'initialization' }
 ChatPharoPresenter >> saveCurrentChat [
-	| fileReference jsonData currentChat defaultFilename |
-	notebook selectedPage ifNil: [
-		^ self inform: 'No chat selected.' ].
-	currentChat := notebook selectedPage presenterProvider value.
-	jsonData := currentChat exportAsJson.
-	
-	"Generate unique default filename using chat title and counter"
-	defaultFilename := (notebook selectedPage title copyReplaceAll: ' ' with: '_'), '.json'.
-	
+
+	| fileReference chat |
+	chat := self selectedChat.
+	chat ifNil: [ ^ self inform: 'No chat selected.' ].
 	fileReference := UIManager default
-		chooseForSaveFileReference: 'Save chat'
-		extensions: #( 'json' )
-		path: FileLocator home / defaultFilename.
+		                 chooseForSaveFileReference: 'Save chat'
+		                 extensions: #( 'json' )
+		                 path: FileLocator home / ((chat title copyReplaceAll: ' ' with: '_') , '.json').
 	fileReference ifNil: [ ^ self ].
 	[
-		fileReference writeStreamDo: [ :stream |
-			stream nextPutAll: jsonData ].
-		ChatPharoLogger logFrontend: 'Chat exported to file'
-			details: (Dictionary new
-				at: 'path' put: fileReference fullName;
-				at: 'chatTitle' put: notebook selectedPage title;
-				yourself)
-	] on: Error do: [ :ex |
-		self inform: 'Failed to save chat: ', ex messageText.
-		ChatPharoLogger logFrontend: 'Chat save failed'
-			details: (Dictionary new
-				at: 'path' put: fileReference fullName;
-				at: 'error' put: ex messageText;
-				yourself) ]
+		fileReference
+			ensureDelete;
+			writeStreamDo: [ :stream | stream nextPutAll: chat exportAsJson ].
+		ChatPharoLogger logFrontend: 'Chat exported to file' details: (Dictionary new
+				 at: 'path' put: fileReference fullName;
+				 at: 'chatTitle' put: chat title;
+				 yourself) ]
+		on: Error
+		do: [ :ex |
+			self inform: 'Failed to save chat: ' , ex messageText.
+			ChatPharoLogger logFrontend: 'Chat save failed' details: (Dictionary new
+					 at: 'path' put: fileReference fullName;
+					 at: 'error' put: ex messageText;
+					 yourself) ]
+]
+
+{ #category : 'accessing' }
+ChatPharoPresenter >> selectedChat [
+	"The chat of the selected tab, or nil when no tab is selected."
+
+	^ notebook selectedPage ifNotNil: [ :page | chatsByPage at: page ifAbsent: [ nil ] ]
 ]
 
 { #category : 'initialization' }
@@ -385,6 +368,15 @@ ChatPharoPresenter >> sendMessage [
 ChatPharoPresenter >> setModelBeforeInitialization: anObject [
 
 	model := anObject
+]
+
+{ #category : 'private' }
+ChatPharoPresenter >> showSessionChats [
+	"One tab per chat of the session: the restored conversations, or a first empty chat."
+
+	model chats
+		ifEmpty: [ self addNewChat ]
+		ifNotEmpty: [ :chats | chats do: [ :each | self addPageForChat: each ] ]
 ]
 
 { #category : 'initialization' }

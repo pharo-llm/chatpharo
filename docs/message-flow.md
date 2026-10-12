@@ -65,14 +65,14 @@ ChatPharo keeps two synchronized representations:
 
 ChatPharo builds an effective prompt from multiple sources:
 
-- **Conversation history** (promptPrefix)
-- **Memory context** (if enabled)
+- **Conversation history** — `ChatPharoHistory`, each message exactly once
+- **Context layers** appended to the system prompt: environment, workflow, project, session, long-term memory (see **context.md**)
 - **Skills context** (enabled skills + optional auto-detected skills)
 
 ### 5) Multivers and cache (optional)
 
 - **Multivers** can rewrite/refine the prompt across a chain of agents.
-- **Caching** can return a previously computed response for identical prompts.
+- **Caching** returns a previous response only for the same prompt in the same conversation state; repeating "continue" later in a chat always reaches the model.
 
 ### 6) Agent call
 
@@ -97,7 +97,9 @@ If tool calls exist and tool calling is enabled/supported:
 2. Append tool result to history as a tool message.
 3. Call the model again with updated history.
 
-Repeat until tool calls stop or `maximumIterations` is reached.
+Repeat until tool calls stop or `maximumIterations` (default 25) is reached. At the limit the model is asked once for a closing written answer without tools, so the user never gets an empty reply.
+
+The loop is `ChatPharoConversationTurn`, shared by every backend. It sums token usage over all the requests of the turn and keeps the reasoning of each one (fields `reasoning_content`, `reasoning`, `thinking`, or inline `<think>` tags), which the **Reasoning** button of the answer shows. Tool calls of one reply run in the order the model listed them. A turn that fails or is cancelled is removed from the history.
 
 ### 9) Conversation update and notifications
 

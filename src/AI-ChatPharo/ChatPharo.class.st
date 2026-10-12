@@ -19,7 +19,13 @@ Class {
 	#superclass : 'Object',
 	#instVars : [
 		'settings',
-		'chats'
+		'chats',
+		'archive',
+		'window',
+		'windowCodeFingerprint'
+	],
+	#classInstVars : [
+		'default'
 	],
 	#category : 'AI-ChatPharo',
 	#package : 'AI-ChatPharo'
@@ -227,6 +233,22 @@ ChatPharo class >> codePromptForSource: source context: contextDictionary [
 
 ]
 
+{ #category : 'instance creation' }
+ChatPharo class >> default [
+	"The ChatPharo session of this image. Its chats are restored from disk when it is created
+	 and outlive its windows: closing and reopening ChatPharo shows the same conversations."
+
+	^ default ifNil: [ default := self withArchive: ChatPharoChatArchive default ]
+]
+
+{ #category : 'code updates' }
+ChatPharo class >> fingerprintOfClass: aClass [
+
+	^ (aClass methods , aClass classSide methods)
+		  inject: aClass instVarNames hash
+		  into: [ :fingerprint :each | fingerprint bitXor: each hash ]
+]
+
 { #category : 'context' }
 ChatPharo class >> performQuickActionNamed: actionName prompt: prompt additionalDetails: details customizeAgent: customizationBlock [
 
@@ -285,6 +307,40 @@ ChatPharo class >> promptForMethodExplanationSource: source className: className
 
 ]
 
+{ #category : 'instance creation' }
+ChatPharo class >> reset [
+	"Forget the session of this image. Saved chats stay on disk and are restored by the next #default."
+
+	<script>
+	default := nil
+]
+
+{ #category : 'code updates' }
+ChatPharo class >> uiClasses [
+	"The classes a ChatPharo window is made of."
+
+	^ (self packageOrganizer packageNamed: 'AI-ChatPharo-Spec') definedClasses asArray , {
+		  ChatPharo.
+		  ChatPharoChat.
+		  ChatPharoMessage }
+]
+
+{ #category : 'code updates' }
+ChatPharo class >> uiCodeFingerprint [
+	"A number that changes when the code of the ChatPharo windows changes."
+
+	^ self uiClasses inject: 0 into: [ :fingerprint :each | fingerprint bitXor: (self fingerprintOfClass: each) ]
+]
+
+{ #category : 'instance creation' }
+ChatPharo class >> withArchive: aChatArchive [
+	"Answer a session whose chats are restored from, and saved to, aChatArchive."
+
+	^ self new
+		  setArchive: aChatArchive;
+		  yourself
+]
+
 { #category : 'accessing' }
 ChatPharo >> activeAgent [
     
@@ -293,10 +349,31 @@ ChatPharo >> activeAgent [
         ifFalse: [ chats last agent ]
 ]
 
+{ #category : 'private' }
+ChatPharo >> agentForNewChat [
+
+	| configured |
+	configured := self settings agent.
+	^ (configured isKindOf: ChatPharoAgent)
+		  ifTrue: [ configured copyForChat ]
+		  ifFalse: [ configured ]
+]
+
 { #category : 'initialization' }
 ChatPharo >> chats [
 
 	^ chats
+]
+
+{ #category : 'code updates' }
+ChatPharo >> codeWasLoaded [
+	"A package finished loading, for instance after an Iceberg pull. A window built by an older
+	 version of ChatPharo keeps showing the conversation but can no longer display new messages:
+	 build a new one. The chats are model objects, they are not affected."
+
+	(window notNil and: [ window isOpen ]) ifFalse: [ ^ self ].
+	self class uiCodeFingerprint = windowCodeFingerprint ifTrue: [ ^ self ].
+	UIManager default defer: [ self reopenWindow ]
 ]
 
 { #category : 'initialization' }
@@ -314,19 +391,30 @@ ChatPharo >> initialize [
 { #category : 'initialization' }
 ChatPharo >> newChat [
 
-	| agentCopy |
-	agentCopy := self settings agent.
-	agentCopy := (agentCopy isKindOf: ChatPharoAgent)
-		             ifTrue: [ agentCopy copyForChat ]
-		             ifFalse: [ agentCopy ].
-	chats add: (ChatPharoChat new
-			 agent: agentCopy;
+	| chat |
+	chat := ChatPharoChat new
+		        agent: self agentForNewChat;
+		        archive: archive;
+		        yourself.
+	chats add: chat.
+	ChatPharoLogger logFrontend: 'New chat session created' details: (Dictionary new
+			 at: 'totalChats' put: chats size;
+			 at: 'agent' put: (ChatPharoLogger agentNameFor: chat agent);
 			 yourself).
-        ChatPharoLogger logFrontend: 'New chat session created'
-                details: (Dictionary new
-                        at: 'totalChats' put: chats size;
-                        at: 'agent' put: (ChatPharoLogger agentNameFor: agentCopy);
-                        yourself)
+	^ chat
+]
+
+{ #category : 'presenters' }
+ChatPharo >> open [
+	"Show my window. A second request brings the existing window to the front: two windows on the
+	 same chats would fight over which one displays the answers."
+
+	(window notNil and: [ window isOpen ]) ifTrue: [
+		window activate.
+		^ window ].
+	self watchCodeUpdates.
+	windowCodeFingerprint := self class uiCodeFingerprint.
+	^ window := self presenter open
 ]
 
 { #category : 'initialization' }
@@ -349,11 +437,24 @@ ChatPharo >> removeAllChats [
 ]
 
 { #category : 'accessing' }
+ChatPharo >> removeChat: aChat [
+	"Close aChat for good: it leaves the session and the archive."
+
+	(chats includes: aChat) ifFalse: [ ^ self ].
+	chats remove: aChat.
+	aChat clearChat.
+	ChatPharoLogger logFrontend: 'Chat removed' details: (Dictionary new
+			 at: 'remainingChats' put: chats size;
+			 yourself)
+]
+
+{ #category : 'accessing' }
 ChatPharo >> removeChatAt: anIndex [
 
 	        | removedChat agentName |
         removedChat := chats at: anIndex ifAbsent: [ nil ].
         chats removeAt: anIndex.
+        removedChat ifNotNil: [ :chat | chat clearChat ].
         agentName := removedChat
                 ifNotNil: [ ChatPharoLogger agentNameFor: removedChat agent ]
                 ifNil: [ 'None' ].
@@ -363,6 +464,25 @@ ChatPharo >> removeChatAt: anIndex [
                         at: 'remainingChats' put: chats size;
                         at: 'agent' put: agentName;
                         yourself)
+]
+
+{ #category : 'code updates' }
+ChatPharo >> reopenWindow [
+
+	| stale |
+	stale := window.
+	window := nil.
+	stale ifNotNil: [ stale close ].
+	^ self open
+]
+
+{ #category : 'initialization' }
+ChatPharo >> setArchive: aChatArchive [
+
+	archive := aChatArchive.
+	archive savedChats do: [ :each |
+		each agent: self agentForNewChat.
+		chats add: each ]
 ]
 
 { #category : 'accessing' }
@@ -384,4 +504,19 @@ ChatPharo >> synchronizeChatsWithSettingsAgent [
 			chat
 				agent: chatAgent;
 				clearCache ]
+]
+
+{ #category : 'code updates' }
+ChatPharo >> watchCodeUpdates [
+	"Be told when a package load ends. Subscribing again must not notify me twice."
+
+	SystemAnnouncer uniqueInstance unsubscribe: self.
+	SystemAnnouncer uniqueInstance weak when: MCVersionLoaderStopped send: #codeWasLoaded to: self
+]
+
+{ #category : 'presenters' }
+ChatPharo >> window [
+	"My open window, or nil."
+
+	^ window
 ]

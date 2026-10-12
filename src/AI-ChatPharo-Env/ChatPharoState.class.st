@@ -95,7 +95,7 @@ ChatPharoState class >> chatPharoWikiWorldMenuOn: aBuilder [
 { #category : 'world state' }
 ChatPharoState class >> openTempChatPresenter [
 
-	ChatPharo new presenter open
+	ChatPharo default open
 ]
 
 { #category : 'world state' }

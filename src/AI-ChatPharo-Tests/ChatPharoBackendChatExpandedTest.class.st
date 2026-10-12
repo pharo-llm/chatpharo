@@ -118,14 +118,18 @@ ChatPharoBackendChatExpandedTest >> testSendMessageAddsSingleTranscriptEntryPerP
     self assert: chat messages size equals: 2
 ]
 
-{ #category : 'running' }
-ChatPharoBackendChatExpandedTest >> testSendMessageCachesIndividualPrompts [
+{ #category : 'tests' }
+ChatPharoBackendChatExpandedTest >> testSendMessageCachesEachPromptWithItsConversationState [
 
-    chat sendMessage: 'Cache me'.
-    self waitForPromptProcess.
-    chat sendMessage: 'Another'.
-    self waitForPromptProcess.
-    self assert: (chat instVarNamed: #cache) keys asSet = #('Cache me' 'Another') asSet
+	| keys |
+	chat sendMessage: 'Cache me'.
+	self waitForPromptProcess.
+	chat sendMessage: 'Another'.
+	self waitForPromptProcess.
+	keys := (chat instVarNamed: #cache) keys.
+	self assert: keys size equals: 2.
+	self assert: (keys includes: 'Cache me').
+	self assert: (keys anySatisfy: [ :each | each ~= 'Another' and: [ each endsWith: 'Another' ] ])
 ]
 
 { #category : 'running' }

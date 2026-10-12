@@ -24,34 +24,37 @@ This document describes ChatPharo as a set of layers with **separation of concer
                                 v
 +--------------------------------------------------------------+
 | Prompt Orchestration Layer                                   |
-| - History → promptPrefix                                      |
-| - + Memory context injection (optional)                       |
-| - + Skills context injection (optional)                       |
+| - ChatPharoContext: environment, workflow, project, session,  |
+|   memory layers appended to the system prompt per request     |
+| - Skills context injection (optional)                         |
 | - Multivers prompt chaining (optional)                        |
 +-------------------------------+------------------------------+
                                 |
                                 v
 +--------------------------------------------------------------+
 | Agent Layer (Backends)                                       |
-| - ChatPharoAgent (contract)                                   |
-| - Claude / Gemini / Ollama / DeepSeek / LM Studio / ...        |
-| - Tool-call loop bounded by maximumIterations                 |
+| - ChatPharoAgent: one template for every backend              |
+|   (subclasses only answer newCompletionClient)                |
+| - ChatPharoConversationTurn: the single bounded tool loop,    |
+|   token and reasoning accumulation, closing answer            |
+| - fallbackModels on usage limit; local runtimes auto-start    |
 +-------------------------------+------------------------------+
                                 |
                                 v
 +--------------------------------------------------------------+
 | Tool & Execution Layer                                       |
 | - ChatPharoTool (OpenAI-like request/response + tool_calls)   |
-| - ChatPharoBrowserEnvironment tools                            |
-| - Custom tools (user-defined)                                 |
-| - MCP tools (optional)                                        |
-| - Sandbox restrictions (optional)                             |
+| - ChatPharoToolbox: the one answer to "which tools now?"      |
+| - ChatPharoToolProvider subclasses: navigation, plans, UI     |
+| - Custom tools, MCP tools, Sandbox restrictions (optional)    |
+| - ChatPharoMCPBridge: the same tools for terminal agents      |
 +-------------------------------+------------------------------+
                                 |
                                 v
 +--------------------------------------------------------------+
 | Persistence & Observability                                  |
 | - ChatPharoSettings (saved defaults)                          |
+| - ChatPharoChatArchive: chats saved and restored              |
 | - Memory store + history export/import                        |
 | - ChatPharoLogger (frontend/backend/system logs)              |
 +--------------------------------------------------------------+
@@ -62,7 +65,9 @@ This document describes ChatPharo as a set of layers with **separation of concer
 - **Pluggable backends**: any agent implementing the `ChatPharoAgent` contract can be selected.
 - **Tooling as callable functions**: tools have a name/description/schema; the model can call them.
 - **Optional subsystems**: Memory, Skills, Multivers, MCP, Sandbox can be enabled independently.
+- **One history, one loop**: `ChatPharoHistory` is the single LLM transcript. The chat records the user prompt, the agent's turn records the model replies, and idempotent `ensureEndsWith…` operations guarantee no message is recorded twice.
 - **Dual representation**: UI messages and LLM history messages are kept in sync but are different objects.
+- **Extension by subclassing**: a new tool group is a `ChatPharoToolProvider` subclass, a new context layer a `ChatPharoContextLayer` subclass, a new backend a `ChatPharoAgent` subclass answering `newCompletionClient`.
 
 ## What to read next
 

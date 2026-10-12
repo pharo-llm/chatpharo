@@ -164,20 +164,17 @@ ChatPharoBackendChatTest >> testHistoryPromptPrefixMatchesHistory [
     self assert: prefix equals: (chat instVarNamed: #history) asPromptPrefix
 ]
 
-{ #category : 'running' }
+{ #category : 'tests' }
 ChatPharoBackendChatTest >> testInitializeWithWelcomeMessageAddsGreeting [
 
-    | welcomeChat |
-    [
-        ChatPharoSettings default instVarNamed: #welcomeMessageEnabled put: true.
-        welcomeChat := ChatPharoChat new.
-        self assert: welcomeChat messages size equals: 1.
-        self assert: (welcomeChat instVarNamed: #history) messages size equals: 1.
-        self assert: (welcomeChat instVarNamed: #history) messages first role equals: 'assistant'.
-        self assert: ((welcomeChat instVarNamed: #history) messages first content includesSubstring: 'Welcome to ChatPharo')
-    ] ensure: [
-        ChatPharoSettings default instVarNamed: #welcomeMessageEnabled put: false
-    ]
+	| welcomeChat |
+	[
+		ChatPharoSettings default instVarNamed: #welcomeMessageEnabled put: true.
+		welcomeChat := ChatPharoChat new.
+		self assert: welcomeChat messages size equals: 1.
+		self assert: (welcomeChat messages first answer includesSubstring: 'Welcome to ChatPharo').
+		self assert: (welcomeChat instVarNamed: #history) messages isEmpty ] ensure: [
+		ChatPharoSettings default instVarNamed: #welcomeMessageEnabled put: false ]
 ]
 
 { #category : 'running' }

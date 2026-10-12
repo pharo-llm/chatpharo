@@ -34,3 +34,9 @@ ChatPharoToolTestTool >> shouldError: aBoolean [
 
     shouldError := aBoolean
 ]
+
+{ #category : 'testing' }
+ChatPharoToolTestTool >> isMutating [
+
+	^ false
+]

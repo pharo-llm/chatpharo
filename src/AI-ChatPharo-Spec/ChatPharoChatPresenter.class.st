@@ -20,7 +20,9 @@ Class {
 		'attachButton',
 		'attachedFiles',
 		'attachedFilesLayout',
-		'attachedFilesPresenter'
+		'attachedFilesPresenter',
+		'messagePresenters',
+		'messagesScroll'
 	],
 	#category : 'AI-ChatPharo-Spec-Core',
 	#package : 'AI-ChatPharo-Spec',
@@ -61,7 +63,7 @@ ChatPharoChatPresenter >> clearAttachments [
 ChatPharoChatPresenter >> connectPresenters [
 
 	model messages do: [ :each |
-		messagesLayout add: each presenter withConstraints: [ :constraints | constraints height: each height ] ].
+		self showMessage: each ].
 
 	messageTextField whenSubmitDo: [ :text | self sendMessage ].
 	messageTextField whenTextChangedDo: [ :text | self updateSubmitButtonState ].
@@ -102,42 +104,12 @@ ChatPharoChatPresenter >> connectPresenters [
 
 	moreMenuButton action: [ self showMoreMenu ].
 
-	model whenAnswerReceivedDo: [ :message |
-			thinkingPresenter thinkingContent: (message thinking ifNil: [ '' ]).
-			thinkingPresenter updateTokenUsageFrom: message.
-			self hideThinking.
-			cancelButton visible: false.
-			submitButton visible: true.
-			messagesLayout add: message presenter withConstraints: [ :constraints | constraints height: message height ].
-			messageTextField text: ''.
-			self updateSubmitButtonState.
-			messageTextField enabled: true.
-			messageTextField takeKeyboardFocus.
-			ChatPharoLogger logFrontend: 'Assistant message rendered' details: (Dictionary new
-					 at: 'chatId' put: model identityHash;
-					 at: 'assistantLabel' put: message assistantLabel;
-					 yourself) ].
-
-
-	model whenToolExecutionDo: [ :toolName |
-			thinkingPresenter phase: #executing.
-			thinkingPresenter addExecutedTool: toolName.
-			ChatPharoLogger logFrontend: 'Tool execution feedback shown' details: (Dictionary new
-					 at: 'chatId' put: model identityHash;
-					 at: 'toolName' put: (toolName ifNil: [ 'unknown' ]);
-					 yourself) ].
-
-	model whenErrorReceivedDo: [ :errorMessage |
-			self hideThinking.
-			cancelButton visible: false.
-			self showError: errorMessage.
-			self updateSubmitButtonState.
-			messageTextField enabled: true.
-			messageTextField takeKeyboardFocus.
-			ChatPharoLogger logFrontend: 'Error displayed in transcript' details: (Dictionary new
-					 at: 'chatId' put: model identityHash;
-					 at: 'error' put: errorMessage;
-					 yourself) ].
+	"The chat answers from a background process; widgets are only touched on the UI process,
+	 in the order the events happened."
+	model whenQuestionRecordedDo: [ :message | self defer: [ self showPendingMessage: message ] ].
+	model whenAnswerReceivedDo: [ :message | self defer: [ self showAnswerOf: message ] ].
+	model whenToolExecutionDo: [ :toolName | self defer: [ self showToolExecution: toolName ] ].
+	model whenErrorReceivedDo: [ :errorMessage | self defer: [ self showSendFailure: errorMessage ] ].
 	model whenChatResetDo: [ self reloadMessages ]
 ]
 
@@ -147,6 +119,8 @@ ChatPharoChatPresenter >> defaultLayout [
 	^ SpBoxLayout newVertical
 		  spacing: 10;
 		  add: scrollableMessages expand: true;
+		  add: thinkingPresenter withConstraints: [ :c | c height: self statusBarHeight ];
+		  add: errorPresenter withConstraints: [ :c | c height: self statusBarHeight ];
 		  add: attachedFilesPresenter expand: false;
 		  add: (SpBoxLayout newHorizontal
 				   spacing: 5;
@@ -202,21 +176,19 @@ ChatPharoChatPresenter >> formatFileSize: bytes [
 
 { #category : 'initialization' }
 ChatPharoChatPresenter >> hideError [
-	"Hide the error indicator"
 
-	messagesLayout remove: errorPresenter ifAbsent: [ "not shown" ]
+	errorPresenter hide
 ]
 
 { #category : 'initialization' }
 ChatPharoChatPresenter >> hideThinking [
-	"Hide the thinking indicator and stop animation"
+	"Stop the indicator, leave 'Done' readable for a moment, then hide it."
 
-thinkingPresenter phase: #finished.
+	thinkingPresenter phase: #finished.
 	thinkingPresenter stopAnimation.
 	[
 		(Delay forMilliseconds: 600) wait.
-		thinkingPresenter isFinished ifTrue: [
-			messagesLayout remove: thinkingPresenter ifAbsent: [ "not shown" ] ] ] fork
+		self defer: [ thinkingPresenter isFinished ifTrue: [ thinkingPresenter hide ] ] ] fork
 ]
 
 { #category : 'initialization' }
@@ -272,6 +244,8 @@ ChatPharoChatPresenter >> initializePresenters [
 
 	thinkingPresenter := self instantiate: ChatPharoThinkingPresenter.
 	errorPresenter := self instantiate: ChatPharoErrorPresenter.
+	thinkingPresenter hide.
+	errorPresenter hide.
 
 	attachedFiles := OrderedCollection new.
 	attachedFilesLayout := SpBoxLayout newVertical.
@@ -279,9 +253,9 @@ ChatPharoChatPresenter >> initializePresenters [
 	attachedFilesPresenter layout: attachedFilesLayout.
 	attachedFilesPresenter visible: false.
 
-	messagesLayout := SpBoxLayout newVertical.
+	messagePresenters := IdentityDictionary new.
 	scrollableMessages := SpPresenter new.
-	scrollableMessages layout: (SpScrollableLayout with: messagesLayout). 
+	self installMessagesLayout
 ]
 
 { #category : 'initialization' }
@@ -294,6 +268,15 @@ ChatPharoChatPresenter >> initializeWindow: aWindowPresenter [
 		initialExtent: 800@500
 ]
 
+{ #category : 'private' }
+ChatPharoChatPresenter >> installMessagesLayout [
+	"A fresh, empty transcript. It scrolls vertically only; see #scrollTranscriptToBottom."
+
+	messagesLayout := SpBoxLayout newVertical.
+	messagesScroll := SpScrollableLayout with: messagesLayout.
+	scrollableMessages layout: messagesScroll
+]
+
 { #category : 'initialization' }
 ChatPharoChatPresenter >> messageText [
 	"Returns the current text in the message input field"
@@ -301,19 +284,56 @@ ChatPharoChatPresenter >> messageText [
 	^ messageTextField text
 ]
 
+{ #category : 'private' }
+ChatPharoChatPresenter >> presenterForMessage: aMessage [
+	"My own presenter for aMessage. A widget lives in one window only: sharing one presenter per
+	 message made a popped-out chat steal the messages of its tab, which then went blank."
+
+	^ messagePresenters at: aMessage ifAbsentPut: [ self instantiate: ChatPharoMessagePresenter on: aMessage ]
+]
+
+{ #category : 'private' }
+ChatPharoChatPresenter >> refreshMessage: aMessage [
+	"aMessage changed, typically its answer arrived: its own presenter redraws itself in place."
+
+	(self presenterForMessage: aMessage) refresh.
+	self scrollToLatestMessage
+]
+
 { #category : 'initialization' }
 ChatPharoChatPresenter >> reloadMessages [
 
 	self hideThinking.
 	self hideError.
-	messagesLayout := SpBoxLayout newVertical.
-	scrollableMessages layout: (SpScrollableLayout with: messagesLayout).
-	model messages do: [ :each | messagesLayout add: each presenter ].
+	messagePresenters := IdentityDictionary new.
+	self installMessagesLayout.
+	model messages do: [ :each | self showMessage: each ].
 	messageTextField text: ''.
 	cancelButton visible: false.
 	messageTextField enabled: true.
 	messageTextField takeKeyboardFocus.
 	self updateSubmitButtonState
+]
+
+{ #category : 'private' }
+ChatPharoChatPresenter >> scrollToLatestMessage [
+	"Keep the newest message in view. Without this an answer arrived below the fold and the user
+	 saw the old half of the conversation. The transcript is laid out during the next UI cycle,
+	 so the scroll position is set one cycle after that, when the new height is known."
+
+	self defer: [ self defer: [ self scrollTranscriptToBottom ] ]
+]
+
+{ #category : 'private' }
+ChatPharoChatPresenter >> scrollTranscriptToBottom [
+	"Lay the transcript out first: the height of the newest message must be known before
+	 the bottom can be reached. The transcript wraps its text, so it never scrolls sideways."
+
+	messagesScroll withAdapterDo: [ :adapter |
+		adapter widget hScrollbarShowNever.
+		adapter widget scrollTarget fullBounds.
+		adapter widget fullBounds ].
+	messagesScroll scrollTo: 0 @ 1
 ]
 
 { #category : 'initialization' }
@@ -359,7 +379,6 @@ ChatPharoChatPresenter >> sendMessage [
 	messageTextField enabled: false.
 	messageTextField text: ''.
 	self clearAttachments.
-	self showThinking.
 	model sendMessage: text withAttachments: attachmentsCopy
 ]
 
@@ -367,6 +386,25 @@ ChatPharoChatPresenter >> sendMessage [
 ChatPharoChatPresenter >> setModelBeforeInitialization: anObject [
 
 	model := anObject
+]
+
+{ #category : 'private - chat events' }
+ChatPharoChatPresenter >> showAnswerOf: aMessage [
+
+	thinkingPresenter thinkingContent: (aMessage thinking ifNil: [ '' ]).
+	thinkingPresenter updateTokenUsageFrom: aMessage.
+	self hideThinking.
+	cancelButton visible: false.
+	submitButton visible: true.
+	self refreshMessage: aMessage.
+	messageTextField text: ''.
+	self updateSubmitButtonState.
+	messageTextField enabled: true.
+	messageTextField takeKeyboardFocus.
+	ChatPharoLogger logFrontend: 'Assistant message rendered' details: (Dictionary new
+			 at: 'chatId' put: model identityHash;
+			 at: 'assistantLabel' put: aMessage assistantLabel;
+			 yourself)
 ]
 
 { #category : 'initialization' }
@@ -380,7 +418,7 @@ ChatPharoChatPresenter >> showCommandResponse: aString [
 		assistantLabel: 'System';
 		yourself.
 	model messages add: responseMessage.
-	messagesLayout add: responseMessage presenter withConstraints: [ :constraints | constraints height: responseMessage height ].
+	self showMessage: responseMessage.
 
 	ChatPharoLogger logFrontend: 'Command response displayed' details: (Dictionary new
 		at: 'chatId' put: model identityHash;
@@ -390,12 +428,20 @@ ChatPharoChatPresenter >> showCommandResponse: aString [
 
 { #category : 'initialization' }
 ChatPharoChatPresenter >> showError: aString [
-	"Show the error indicator with the given error message"
-errorPresenter ifNil: [ errorPresenter := self instantiate: ChatPharoErrorPresenter ].
-	self hideError.
+	"The error bar has a fixed place under the transcript; it is shown and hidden, never moved."
+
 	errorPresenter errorMessage: aString.
 	errorPresenter whenDismissedDo: [ self hideError ].
-	messagesLayout add: errorPresenter withConstraints: [ :constraints | constraints height: 40 ]
+	errorPresenter show
+]
+
+{ #category : 'private' }
+ChatPharoChatPresenter >> showMessage: aMessage [
+	"Append aMessage to the transcript. Its presenter sizes itself and resizes itself when the
+	 answer arrives, so the transcript never has to remove and re-add a message."
+
+	messagesLayout add: (self presenterForMessage: aMessage) expand: false.
+	self scrollToLatestMessage
 ]
 
 { #category : 'initialization' }
@@ -432,13 +478,53 @@ ChatPharoChatPresenter >> showMoreMenu [
 	menu openWithSpecAt: moreMenuButton adapter widget bounds bottomLeft
 ]
 
+{ #category : 'private - chat events' }
+ChatPharoChatPresenter >> showPendingMessage: aMessage [
+	"The user sees their question at once, with the indicator that ChatPharo is working on it."
+
+	self showMessage: aMessage.
+	self showThinking
+]
+
+{ #category : 'private - chat events' }
+ChatPharoChatPresenter >> showSendFailure: anErrorMessage [
+
+	self hideThinking.
+	cancelButton visible: false.
+	self showError: anErrorMessage.
+	self updateSubmitButtonState.
+	messageTextField enabled: true.
+	messageTextField takeKeyboardFocus.
+	ChatPharoLogger logFrontend: 'Error displayed in transcript' details: (Dictionary new
+			 at: 'chatId' put: model identityHash;
+			 at: 'error' put: anErrorMessage;
+			 yourself)
+]
+
 { #category : 'initialization' }
 ChatPharoChatPresenter >> showThinking [
-	"Show the thinking indicator with animation"
-messagesLayout remove: thinkingPresenter ifAbsent: [ "not shown" ].
+	"The working indicator has a fixed place under the transcript; it is shown and hidden, never moved."
+
 	thinkingPresenter phase: #thinking.
 	thinkingPresenter startAnimation.
-	messagesLayout add: thinkingPresenter withConstraints: [ :constraints | constraints height: 40 ]
+	thinkingPresenter show
+]
+
+{ #category : 'private - chat events' }
+ChatPharoChatPresenter >> showToolExecution: aToolName [
+
+	thinkingPresenter phase: #executing.
+	thinkingPresenter addExecutedTool: aToolName.
+	ChatPharoLogger logFrontend: 'Tool execution feedback shown' details: (Dictionary new
+			 at: 'chatId' put: model identityHash;
+			 at: 'toolName' put: (aToolName ifNil: [ 'unknown' ]);
+			 yourself)
+]
+
+{ #category : 'layout' }
+ChatPharoChatPresenter >> statusBarHeight [
+
+	^ 40
 ]
 
 { #category : 'initialization' }

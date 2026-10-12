@@ -19,12 +19,28 @@ Class {
 		'maxTokensInput',
 		'topPInput',
 		'customParametersInput',
-		'onSettingsChanged'
+		'onSettingsChanged',
+		'fallbackInput',
+		'autoConfigureButton'
 	],
 	#category : 'AI-ChatPharo-Spec-Agent',
 	#package : 'AI-ChatPharo-Spec',
 	#tag : 'Agent'
 }
+
+{ #category : 'actions' }
+ChatPharoOllamaSettingsPresenter >> autoConfigure [
+	"Make Ollama usable without the user touching a terminal. Starting the server can take a
+	 while, so it happens beside the UI; the widgets are updated back on the UI process."
+
+	[
+		| ready |
+		ready := model class runtime ensureRunning.
+		self defer: [
+			ready
+				ifTrue: [ self useInstalledModelsOrPullOne ]
+				ifFalse: [ self inform: 'Ollama is not installed or did not start. Install it from https://ollama.com and try again.' ] ] ] fork
+]
 
 { #category : 'initialization' }
 ChatPharoOllamaSettingsPresenter >> connectPresenters [
@@ -53,6 +69,7 @@ ChatPharoOllamaSettingsPresenter >> connectPresenters [
 		self updateTopPFrom: text ].
 	customParametersInput whenTextChangedDo: [ :text |
 		self updateCustomParametersFrom: text ].
+	fallbackInput whenTextChangedDo: [ :text | self updateFallbackModelsFrom: text ]
 ]
 
 { #category : 'layout' }
@@ -123,7 +140,14 @@ maxTokensRow := SpBoxLayout newHorizontal
 		              spacing: 8;
 		              borderWidth: 8;
 		              beNotHomogeneous;
+		              add: autoConfigureButton expand: false;
 		              add: modelRow expand: false;
+		              add: (SpBoxLayout newHorizontal
+				               spacing: 8;
+				               add: (self newLabel label: 'Fallback models:') expand: false;
+				               add: fallbackInput expand: true;
+				               yourself)
+		              expand: false;
 		add: suggestedRow expand: false;
 		              add: installRow expand: false;
 		              add: hostRow expand: false;
@@ -229,7 +253,18 @@ ChatPharoOllamaSettingsPresenter >> initializePresenters [
 		              label: 'Test Connection';
 		              icon: (self iconNamed: #glamorousGo);
 		              action: [ self testConnection ];
-		              yourself
+		              yourself.
+	fallbackInput := self newTextInput
+		                 placeholder: 'e.g. qwen3:4b, llama3.2:3b';
+		                 help: 'Models tried in order when the selected model reaches its usage limit or is missing';
+		                 text: (', ' join: model fallbackModels);
+		                 yourself.
+	autoConfigureButton := self newButton
+		                       label: 'Set up Ollama for me';
+		                       icon: (self iconNamed: #smallDoIt);
+		                       help: 'Start Ollama if needed, pick the best installed model (or download one) and use the others as fallbacks';
+		                       action: [ self autoConfigure ];
+		                       yourself
 ]
 
 { #category : 'accessing' }
@@ -278,6 +313,15 @@ ChatPharoOllamaSettingsPresenter >> modelsDrop: anObject [
 ChatPharoOllamaSettingsPresenter >> notifySettingsChanged [
 
 	onSettingsChanged ifNotNil: [ :block | block value ]
+]
+
+{ #category : 'actions' }
+ChatPharoOllamaSettingsPresenter >> pullDefaultModel [
+
+	ChatPharoModelPullProgressPresenter
+		pullModel: model class defaultModelToPull
+		onComplete: [ self useInstalledModels: model class preferredModelNames ]
+		onError: [ :error | self inform: 'Could not download ' , model class defaultModelToPull , ': ' , error messageText ]
 ]
 
 { #category : 'accessing' }
@@ -373,6 +417,15 @@ ChatPharoOllamaSettingsPresenter >> updateCustomParametersFrom: text [
 		ifFalse: [ self inform: 'Custom parameters must be a JSON object.' ]
 ]
 
+{ #category : 'private' }
+ChatPharoOllamaSettingsPresenter >> updateFallbackModelsFrom: aString [
+
+	model fallbackModels: ((aString asString substrings: ',')
+			 collect: [ :each | each trimBoth ]
+			 thenReject: [ :each | each isEmpty ]).
+	self notifySettingsChanged
+]
+
 { #category : 'initialization' }
 ChatPharoOllamaSettingsPresenter >> updateMaxTokensFrom: text [
 
@@ -419,6 +472,29 @@ ChatPharoOllamaSettingsPresenter >> updateTopPFrom: text [
 		ifFalse: [
 			model topP: number asFloat.
 			self notifySettingsChanged ]
+]
+
+{ #category : 'actions' }
+ChatPharoOllamaSettingsPresenter >> useInstalledModels: modelNames [
+	"The first model answers; the others take over when it reaches its usage limit."
+
+	modelNames ifEmpty: [ ^ self ].
+	model
+		model: modelNames first;
+		fallbackModels: modelNames allButFirst.
+	self refreshModels.
+	fallbackInput text: (', ' join: model fallbackModels).
+	self notifySettingsChanged
+]
+
+{ #category : 'actions' }
+ChatPharoOllamaSettingsPresenter >> useInstalledModelsOrPullOne [
+
+	| names |
+	names := model class preferredModelNames.
+	names
+		ifEmpty: [ self pullDefaultModel ]
+		ifNotEmpty: [ self useInstalledModels: names ]
 ]
 
 { #category : 'initialization' }

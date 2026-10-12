@@ -52,7 +52,7 @@ ChatPharoShortcuts class >> installAsGlobalCategory [
 ChatPharoShortcuts class >> openChatPharo [
 	"Open a new ChatPharo window"
 
-	ChatPharo new presenter open
+	ChatPharo default open
 ]
 
 { #category : 'visiting' }

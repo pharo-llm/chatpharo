@@ -53,6 +53,12 @@ ChatPharoHistorySaver >> content: anObject [
 	content := anObject
 ]
 
+{ #category : 'testing' }
+ChatPharoHistorySaver >> hasToolCalls [
+
+	^ toolCalls isEmptyOrNil not
+]
+
 { #category : 'history' }
 ChatPharoHistorySaver >> historyStringOn: strm [
 

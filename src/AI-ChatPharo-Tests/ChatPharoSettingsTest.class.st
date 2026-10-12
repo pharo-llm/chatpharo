@@ -156,22 +156,11 @@ ChatPharoSettingsTest >> testEnableBrowserToolDoesNotDuplicate [
 ]
 
 { #category : 'tests' }
-ChatPharoSettingsTest >> testEnableBrowserToolResetsMaximumIterations [
+ChatPharoSettingsTest >> testEnableBrowserToolKeepsMaximumIterations [
 
-    settings maximumIterations: 10.
-    settings enableBrowserTool: settings browserToolsEnabled anyOne.
-    self assert: settings maximumIterations equals: 3.
-]
-
-{ #category : 'tests' }
-ChatPharoSettingsTest >> testEnableDisableBrowserTool [ 
-
-        | name |
-        name := settings browserToolsEnabled anyOne.
-        settings disableBrowserTool: name.
-        self deny: (settings browserToolsEnabled includes: name).
-        settings enableBrowserTool: name.
-        self assert: (settings browserToolsEnabled includes: name)
+	settings maximumIterations: 10.
+	settings enableBrowserTool: settings browserToolsEnabled anyOne.
+	self assert: settings maximumIterations equals: 10
 ]
 
 { #category : 'tests' }

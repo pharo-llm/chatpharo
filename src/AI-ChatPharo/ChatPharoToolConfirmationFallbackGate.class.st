@@ -21,6 +21,15 @@ Class {
 }
 
 { #category : 'confirmation' }
+ChatPharoToolConfirmationFallbackGate >> askWhyDenied: aToolName [
+	"Answer what the user says about their refusal; empty when they say nothing or cannot be asked."
+
+	^ [ (UIManager default request: 'Why deny ' , aToolName , '? Your answer is sent to ChatPharo (optional).') ifNil: [ '' ] ]
+		  on: Error
+		  do: [ '' ]
+]
+
+{ #category : 'confirmation' }
 ChatPharoToolConfirmationFallbackGate >> confirmToolNamed: aToolName arguments: anArguments action: actionLabel summary: summaryString [
 
 	| title message choice |
@@ -41,5 +50,6 @@ ChatPharoToolConfirmationFallbackGate >> confirmToolNamed: aToolName arguments: 
 
 	choice = 1 ifTrue: [ ^ ChatPharoToolConfirmationDecision allow ].
 	choice = 2 ifTrue: [ ^ ChatPharoToolConfirmationDecision always ].
+	choice = 3 ifTrue: [ ^ ChatPharoToolConfirmationDecision denyBecause: (self askWhyDenied: aToolName) ].
 	^ ChatPharoToolConfirmationDecision denyWithReason: 'The user declined to run ' , aToolName , '.'
 ]

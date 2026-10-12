@@ -100,3 +100,22 @@ ChatPharoHistorySaverToolCall >> openAIChatToolMessage [
 	with: 'tool_call_id' -> id asString copy
 	with: 'content' -> (content ifNil: [ '[No tool result]' ])
 ]
+
+{ #category : 'printing' }
+ChatPharoHistorySaverToolCall >> printTraceOn: aStream [
+	"A short human readable account of this call for the thinking panel."
+
+	aStream
+		nextPutAll: 'Function: ';
+		nextPutAll: functionName;
+		cr;
+		nextPutAll: 'Arguments: ';
+		nextPutAll: arguments asString;
+		cr.
+	content ifNotNil: [
+		aStream
+			nextPutAll: 'Result: ';
+			nextPutAll: (content truncateWithElipsisTo: 400);
+			cr ].
+	aStream cr
+]

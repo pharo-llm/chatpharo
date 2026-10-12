@@ -75,7 +75,12 @@ Class {
 		'retryMaxAttempts',
 		'retryBaseDelay',
 		'retryMaxDelay',
-		'metadataEnabled'
+		'metadataEnabled',
+		'projectContextEnabled',
+		'sessionContextEnabled',
+		'autoStartLocalRuntimes',
+		'knownBrowserTools',
+		'planValidationEnabled'
 	],
 	#classInstVars : [
 		'Default'
@@ -89,6 +94,22 @@ ChatPharoSettings class >> default [
 
 	Default ifNil: [ self setDefault: self loadOrNew ].
 	^ Default
+]
+
+{ #category : 'accessing' }
+ChatPharoSettings class >> keepUnreadableSettingsAt: aFileReference because: anError [
+	"Settings that cannot be read, typically after an upgrade changed a class, are set aside
+	 instead of being silently replaced by defaults at the next save: the user's keys and choices
+	 stay recoverable from the copy."
+
+	| copy |
+	copy := aFileReference parent / 'chatpharo-settings.unreadable.ston'.
+	copy ensureDelete.
+	aFileReference copyTo: copy.
+	ChatPharoLogger logSystem: 'Settings could not be read; a copy was kept' details: (Dictionary new
+			 at: 'error' put: anError messageText;
+			 at: 'copy' put: copy fullName;
+			 yourself)
 ]
 
 { #category : 'accessing' }
@@ -214,9 +235,12 @@ ChatPharoSettings class >> loadOrNew [
 					  settings privateSetRetryMaxDelay: 30 ].
 				  settings metadataEnabled ifNil: [
 					  settings privateSetMetadataEnabled: true ].
+				  settings enableNewlyIntroducedTools.
 				  ^ settings ]
 				  on: Error
-				  do: [ ^ self new ] ]
+				  do: [ :error |
+					  self keepUnreadableSettingsAt: path because: error.
+					  ^ self new ] ]
 ]
 
 { #category : 'accessing' }
@@ -282,6 +306,34 @@ ChatPharoSettings class >> settingsDirectory [
 ChatPharoSettings class >> settingsFileReference [
 
         ^ self settingsDirectory / 'chatpharo-settings.ston'
+]
+
+{ #category : 'tools' }
+ChatPharoSettings class >> toolNamesBeforeToolTracking [
+	"The built-in tools that existed before settings remembered which tools they had seen.
+	 Settings saved back then may have any of these disabled on purpose."
+
+	^ #( 'get_packages' 'get_classes_in_packages' 'get_class_definitions' 'get_class_comments' 'get_class_methods'
+	     'get_class_subclasses' 'find_methods_with_substring' 'describe_package' 'rename_classes_in_package'
+	     'create_package' 'create_class' 'remove_class' 'rename_class' 'add_method' 'remove_method' 'rename_method'
+	     'move_class_to_package' 'add_instance_variable' 'remove_instance_variable' 'set_class_comment'
+	     'get_package_comments' 'set_package_comment' 'get_method_comment' 'set_method_comment' 'move_method_to_protocol'
+	     'get_sandbox_status' 'sandbox_evaluate' 'create_temporal_tool' 'delete_temporal_tool' 'delete_all_temporal_tools'
+	     'list_temporal_tools' 'check_syntax' 'open_playground' 'finder_search' )
+]
+
+{ #category : 'tools' }
+ChatPharoSettings >> acknowledgeBuiltInToolNames: currentNames [
+	"Enable the built-in tools I have never seen, and leave alone the ones the user disabled.
+	 Without this an upgrade would ship tools that stay switched off for existing users."
+
+	| knownNames |
+	knownNames := knownBrowserTools ifNil: [ self class toolNamesBeforeToolTracking ].
+	(currentNames allSatisfy: [ :each | knownNames includes: each ]) ifTrue: [ ^ self ].
+	currentNames
+		reject: [ :each | (knownNames includes: each) or: [ browserToolsEnabled includes: each ] ]
+		thenDo: [ :each | browserToolsEnabled add: each ].
+	knownBrowserTools := currentNames asOrderedCollection
 ]
 
 { #category : 'custom tools' }
@@ -367,6 +419,21 @@ ChatPharoSettings >> assertCustomToolNameAvailable: toolName excluding: excluded
 		self error: 'A tool with this name already exists' ].
 	((ChatPharoBrowserEnvironment new tools collect: [ :tool | tool name ]) includes: toolName) ifTrue: [
 		self error: 'A tool with this name already exists' ]
+]
+
+{ #category : 'local runtimes' }
+ChatPharoSettings >> autoStartLocalRuntimes [
+	"Whether ChatPharo may start Ollama or LM Studio when they are installed but not running."
+
+	^ autoStartLocalRuntimes ifNil: [ autoStartLocalRuntimes := true ]
+]
+
+{ #category : 'local runtimes' }
+ChatPharoSettings >> autoStartLocalRuntimes: aBoolean [
+
+	autoStartLocalRuntimes := aBoolean.
+	self class setDefault: self.
+	self class saveDefault
 ]
 
 { #category : 'skills' }
@@ -488,6 +555,13 @@ ChatPharoSettings >> cacheEnabled: aBoolean [
             details: (Dictionary new
                     at: 'enabled' put: aBoolean;
                     yourself)
+]
+
+{ #category : 'metadata' }
+ChatPharoSettings >> chatPharoVersion [
+	"Return the current ChatPharo version string"
+	
+	^ '1.0.0'
 ]
 
 { #category : 'accessing' }
@@ -751,12 +825,17 @@ ChatPharoSettings >> enableBrowserTool: toolName [
                 browserToolsEnabled add: toolName ].
         self class setDefault: self.
         self class saveDefault.
-maximumIterations := 3.
         ChatPharoLogger logFrontend: 'Browser tool enabled'
                 details: (Dictionary new
                         at: 'tool' put: toolName;
                         at: 'tools' put: browserToolsEnabled asArray printString;
                         yourself)
+]
+
+{ #category : 'tools' }
+ChatPharoSettings >> enableNewlyIntroducedTools [
+
+	self acknowledgeBuiltInToolNames: (ChatPharoBrowserEnvironment new tools collect: [ :each | each name ])
 ]
 
 { #category : 'initialization' }
@@ -899,7 +978,8 @@ ChatPharoSettings >> initialize [
 	codeFeatureEnabled := true.
 	ethicsDirector := ChatPharoEthicsDirector new.
 	browserToolsEnabled := self defaultBrowserToolsEnabled.
-	maximumIterations := 3.
+	knownBrowserTools := (ChatPharoBrowserEnvironment new tools collect: [ :each | each name ]) asOrderedCollection.
+	maximumIterations := 25.
 	skillsEnabled := OrderedCollection new.
 	automaticSkillsEnabled := true.
 	skillToolsEnabled := true.
@@ -1156,6 +1236,51 @@ ChatPharoSettings >> messageLimit: aNumber [
 	self class saveDefault
 ]
 
+{ #category : 'metadata' }
+ChatPharoSettings >> metadataEnabled [
+	"Whether to send metadata (version, platform, etc.) to the AI model"
+	
+	^ metadataEnabled ifNil: [ metadataEnabled := true ]
+]
+
+{ #category : 'metadata' }
+ChatPharoSettings >> metadataEnabled: aBoolean [
+	"Enable or disable sending metadata to the AI model"
+	
+	metadataEnabled := aBoolean.
+	self class setDefault: self.
+	self class saveDefault.
+	ChatPharoLogger logFrontend: 'Metadata toggled'
+		details: (Dictionary new
+			at: 'enabled' put: aBoolean;
+			yourself)
+]
+
+{ #category : 'metadata' }
+ChatPharoSettings >> metadataString [
+	"Build a metadata string with version and platform info for the AI model"
+	
+	| stream |
+	stream := String new writeStream.
+	stream nextPutAll: '## ChatPharo Environment'.
+	stream cr.
+	stream nextPutAll: '- ChatPharo version: '.
+	stream nextPutAll: self chatPharoVersion.
+	stream cr.
+	stream nextPutAll: '- Pharo version: '.
+	stream nextPutAll: SystemVersion current asString.
+	stream cr.
+	stream nextPutAll: '- Platform: '.
+	stream nextPutAll: OSPlatform current name.
+	stream cr.
+	stream nextPutAll: '- Locale: '.
+	stream nextPutAll: Locale current asString.
+	stream cr.
+	stream nextPutAll: '- Timestamp: '.
+	stream nextPutAll: DateAndTime now asString.
+	^ stream contents
+]
+
 { #category : 'initialization' }
 ChatPharoSettings >> models [
 
@@ -1211,6 +1336,21 @@ ChatPharoSettings >> newConfiguredSandbox [
 	sandbox restrictNetwork: self sandboxRestrictNetwork.
 	sandbox restrictSystemAccess: self sandboxRestrictSystemAccess.
 	^ sandbox
+]
+
+{ #category : 'plans' }
+ChatPharoSettings >> planValidationEnabled [
+	"Whether the model must propose a plan for multi-step work and the user validates each step."
+
+	^ planValidationEnabled ifNil: [ planValidationEnabled := true ]
+]
+
+{ #category : 'plans' }
+ChatPharoSettings >> planValidationEnabled: aBoolean [
+
+	planValidationEnabled := aBoolean.
+	self class setDefault: self.
+	self class saveDefault
 ]
 
 { #category : 'initialization' }
@@ -1322,6 +1462,11 @@ ChatPharoSettings >> privateSetMessageLimit: aNumber [
 ]
 
 { #category : 'private' }
+ChatPharoSettings >> privateSetMetadataEnabled: aBoolean [
+	metadataEnabled := aBoolean
+]
+
+{ #category : 'private' }
 ChatPharoSettings >> privateSetRetryBaseDelay: aNumber [
 	retryBaseDelay := aNumber
 ]
@@ -1339,11 +1484,6 @@ ChatPharoSettings >> privateSetRetryMaxAttempts: anInteger [
 { #category : 'private' }
 ChatPharoSettings >> privateSetRetryMaxDelay: aNumber [
 	retryMaxDelay := aNumber
-]
-
-{ #category : 'private' }
-ChatPharoSettings >> privateSetMetadataEnabled: aBoolean [
-	metadataEnabled := aBoolean
 ]
 
 { #category : 'private' }
@@ -1416,6 +1556,21 @@ ChatPharoSettings >> privateSetUserOrganization: aString [
 ChatPharoSettings >> privateSetWantsTutorial: aBoolean [
 
 	wantsTutorial := aBoolean
+]
+
+{ #category : 'context' }
+ChatPharoSettings >> projectContextEnabled [
+	"Whether the model is told about the image and its Git repositories before each request."
+
+	^ projectContextEnabled ifNil: [ projectContextEnabled := true ]
+]
+
+{ #category : 'context' }
+ChatPharoSettings >> projectContextEnabled: aBoolean [
+
+	projectContextEnabled := aBoolean.
+	self class setDefault: self.
+	self class saveDefault
 ]
 
 { #category : 'custom tools' }
@@ -1548,58 +1703,6 @@ ChatPharoSettings >> retryMaxDelay: aNumber [
 			yourself)
 ]
 
-{ #category : 'metadata' }
-ChatPharoSettings >> metadataEnabled [
-	"Whether to send metadata (version, platform, etc.) to the AI model"
-	
-	^ metadataEnabled ifNil: [ metadataEnabled := true ]
-]
-
-{ #category : 'metadata' }
-ChatPharoSettings >> metadataEnabled: aBoolean [
-	"Enable or disable sending metadata to the AI model"
-	
-	metadataEnabled := aBoolean.
-	self class setDefault: self.
-	self class saveDefault.
-	ChatPharoLogger logFrontend: 'Metadata toggled'
-		details: (Dictionary new
-			at: 'enabled' put: aBoolean;
-			yourself)
-]
-
-{ #category : 'metadata' }
-ChatPharoSettings >> metadataString [
-	"Build a metadata string with version and platform info for the AI model"
-	
-	| stream |
-	stream := String new writeStream.
-	stream nextPutAll: '## ChatPharo Environment'.
-	stream cr.
-	stream nextPutAll: '- ChatPharo version: '.
-	stream nextPutAll: self chatPharoVersion.
-	stream cr.
-	stream nextPutAll: '- Pharo version: '.
-	stream nextPutAll: SystemVersion current asString.
-	stream cr.
-	stream nextPutAll: '- Platform: '.
-	stream nextPutAll: OSPlatform current name.
-	stream cr.
-	stream nextPutAll: '- Locale: '.
-	stream nextPutAll: Locale current asString.
-	stream cr.
-	stream nextPutAll: '- Timestamp: '.
-	stream nextPutAll: DateAndTime now asString.
-	^ stream contents
-]
-
-{ #category : 'metadata' }
-ChatPharoSettings >> chatPharoVersion [
-	"Return the current ChatPharo version string"
-	
-	^ '1.0.0'
-]
-
 { #category : 'private' }
 ChatPharoSettings >> sandboxEnabled [
 
@@ -1688,6 +1791,21 @@ ChatPharoSettings >> sandboxTimeout: anInteger [
 		details: (Dictionary new
 			at: 'timeout' put: anInteger;
 			yourself)
+]
+
+{ #category : 'context' }
+ChatPharoSettings >> sessionContextEnabled [
+	"Whether the model is told what the user is doing: focused window and latest code changes."
+
+	^ sessionContextEnabled ifNil: [ sessionContextEnabled := true ]
+]
+
+{ #category : 'context' }
+ChatPharoSettings >> sessionContextEnabled: aBoolean [
+
+	sessionContextEnabled := aBoolean.
+	self class setDefault: self.
+	self class saveDefault
 ]
 
 { #category : 'skills' }

@@ -49,7 +49,8 @@ ChatPharoMessageTest >> testDefaultInitialization [
 	self assert: msg answer equals: String empty.
 	self assert: msg assistantLabel equals: 'Assistant'.
 	self assert: msg feedback isNil.
-	self assert: msg height equals: 112
+	"Nothing to show yet: only the margin that separates messages."
+	self assert: msg height equals: msg presenter bottomMargin
 ]
 
 { #category : 'tests' }

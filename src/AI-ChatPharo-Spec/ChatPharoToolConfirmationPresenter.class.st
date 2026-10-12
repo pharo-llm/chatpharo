@@ -9,6 +9,9 @@ fallback with a proper Pharo-native confirmation UI:
   for.
 - An arguments panel showing every argument the model sent, so the user
   can verify no surprise is hidden in a method body or a class name.
+- A reason field: when the user denies, what they typed there is sent to
+  the model with the refusal, so it learns *why* and can propose
+  something else instead of retrying blindly.
 - Three buttons:
     Allow               - run the tool this one time.
     Always in this chat - run and remember for the rest of the session.
@@ -39,7 +42,8 @@ Class {
 		'allowButton',
 		'alwaysButton',
 		'denyButton',
-		'decision'
+		'decision',
+		'reasonInput'
 	],
 	#category : 'AI-ChatPharo-Spec-Confirmation',
 	#package : 'AI-ChatPharo-Spec',
@@ -230,6 +234,7 @@ ChatPharoToolConfirmationPresenter >> defaultLayout [
 		  add: descriptionText expand: false;
 		  add: 'Arguments' expand: false;
 		  add: argumentsTable;
+		  add: reasonInput expand: false;
 		  add: (SpBoxLayout newLeftToRight
 				   spacing: 10;
 				   addLast: denyButton expand: false;
@@ -285,6 +290,10 @@ ChatPharoToolConfirmationPresenter >> initializePresenters [
 	denyButton := self newButton
 		label: 'Deny';
 		icon: (self iconNamed: #smallCancel);
+		yourself.
+	reasonInput := self newTextInput
+		placeholder: 'If you deny: why, or what should ChatPharo do instead? (optional)';
+		help: 'Your reason is sent to the model with the refusal, so it can change its approach instead of guessing.';
 		yourself
 ]
 
@@ -293,8 +302,8 @@ ChatPharoToolConfirmationPresenter >> initializeWindow: aWindowPresenter [
 
 	super initializeWindow: aWindowPresenter.
 	aWindowPresenter
-		title: 'ChatPharo · Confirm ', self actionLabel;
-		initialExtent: 640 @ 460;
+		title: 'ChatPharo · Confirm ' , self actionLabel;
+		initialExtent: 680 @ 520;
 		centered
 ]
 
@@ -315,12 +324,12 @@ ChatPharoToolConfirmationPresenter >> openModalDialog [
 { #category : 'actions' }
 ChatPharoToolConfirmationPresenter >> reject [
 
-	decision := ChatPharoToolConfirmationDecision
-		denyWithReason: 'The user denied the tool call from the confirmation dialog.'.
+	decision := ChatPharoToolConfirmationDecision denyBecause: self typedReason.
 	ChatPharoLogger logFrontend: 'ToolConfirmation: Deny clicked' details: (Dictionary new
-			at: 'tool' put: (toolName ifNil: [ '?' ]);
-			at: 'decision' put: 'deny';
-			yourself).
+			 at: 'tool' put: (toolName ifNil: [ '?' ]);
+			 at: 'decision' put: 'deny';
+			 at: 'reason' put: decision reason;
+			 yourself).
 	self closeWindow
 ]
 
@@ -371,4 +380,10 @@ ChatPharoToolConfirmationPresenter >> toolName: aString [
 	
 	toolName := aString.
 	toolNameLabel ifNotNil: [ toolNameLabel label: 'tool: ', (toolName ifNil: [ '' ]) ]
+]
+
+{ #category : 'private' }
+ChatPharoToolConfirmationPresenter >> typedReason [
+
+	^ (reasonInput text ifNil: [ '' ]) asString trimBoth
 ]

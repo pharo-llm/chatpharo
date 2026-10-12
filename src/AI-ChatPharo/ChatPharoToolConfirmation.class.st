@@ -53,15 +53,6 @@ ChatPharoToolConfirmation class >> default [
 	^ Default ifNil: [ Default := self new ]
 ]
 
-{ #category : 'mutating tools' }
-ChatPharoToolConfirmation class >> mutatingToolNames [
-	"TODO: this must be dynamic "
-	^ #( 'create_class' 'remove_class' 'rename_class' 'rename_classes_in_package' 'move_class_to_package' 'add_instance_variable'
-	     'remove_instance_variable' 'set_class_comment' 'add_method' 'remove_method' 'rename_method' 'move_method_to_protocol'
-	     'set_method_comment' 'create_package' 'set_package_comment' 'sandbox_evaluate' 'evaluate_expression' 'open_playground'
-	     'create_temporal_tool' 'delete_temporal_tool' 'delete_all_temporal_tools' ) asSet
-]
-
 { #category : 'class initialization' }
 ChatPharoToolConfirmation class >> initialize [
 	"Eagerly create the default singleton so that parallel forked tool
@@ -69,6 +60,15 @@ ChatPharoToolConfirmation class >> initialize [
 	 instances (each with its own empty sessionAllowList)."
 	
 	self default
+]
+
+{ #category : 'mutating tools' }
+ChatPharoToolConfirmation class >> mutatingToolNames [
+	"TODO: this must be dynamic "
+	^ #( 'create_class' 'remove_class' 'rename_class' 'rename_classes_in_package' 'move_class_to_package' 'add_instance_variable'
+	     'remove_instance_variable' 'set_class_comment' 'add_method' 'remove_method' 'rename_method' 'move_method_to_protocol'
+	     'set_method_comment' 'create_package' 'set_package_comment' 'sandbox_evaluate' 'evaluate_expression' 'open_playground'
+	     'create_temporal_tool' 'delete_temporal_tool' 'delete_all_temporal_tools' ) asSet
 ]
 
 { #category : 'class initialization' }
@@ -110,12 +110,14 @@ ChatPharoToolConfirmation >> actionLabelFor: aToolName [
 
 { #category : 'private' }
 ChatPharoToolConfirmation >> cancellationPayloadFor: aToolName reason: aString [
+	"What the model reads when the user refuses a tool call. The user's own words come first:
+	 they are the most useful signal for the model to change its approach."
 
 	^ Dictionary new
 		  at: 'cancelled' put: true;
 		  at: 'tool' put: aToolName;
 		  at: 'reason' put: (aString ifEmpty: [ 'The user did not authorize this operation.' ]);
-		  at: 'hint' put: 'Do not retry this operation without the user''s explicit agreement. Ask the user before trying again.';
+		  at: 'hint' put: 'The user refused this call. Take the reason into account, do not retry the same call, and propose an alternative or ask the user what they prefer.';
 		  yourself
 ]
 
@@ -170,38 +172,31 @@ ChatPharoToolConfirmation >> gate: aGate [
 { #category : 'public' }
 ChatPharoToolConfirmation >> guardToolNamed: aToolName arguments: anArguments ifDeniedDo: aBlock [
 
+	^ self
+		  guardToolNamed: aToolName
+		  arguments: anArguments
+		  mutating: false
+		  ifDeniedDo: aBlock
+]
+
+{ #category : 'public' }
+ChatPharoToolConfirmation >> guardToolNamed: aToolName arguments: anArguments mutating: declaredMutating ifDeniedDo: aBlock [
+	"Let the call through, or evaluate aBlock with the cancellation payload for the model.
+	 A tool needs the user's consent when it declares itself mutating or is a known mutating built-in."
+
 	| decision |
-	self isEnabled ifFalse: [
-		ChatPharoLogger logSystem: 'ToolConfirmation disabled by setting' details: (Dictionary new
-				at: 'tool' put: aToolName;
-				yourself).
-		^ self ].
-	(self isMutatingTool: aToolName) ifFalse: [
-		ChatPharoLogger logSystem: 'Tool is not mutating, bypassing guard' details: (Dictionary new
-				at: 'tool' put: aToolName;
-				yourself).
-		^ self ].
-	(self isApprovedForSession: aToolName) ifTrue: [
-		ChatPharoLogger logSystem: 'Tool approved via sessionAllowList' details: (Dictionary new
-				at: 'tool' put: aToolName;
-				at: 'allowList' put: self sessionAllowList asArray;
-				yourself).
-		^ self ].
+	self isEnabled ifFalse: [ ^ self ].
+	(declaredMutating or: [ self isMutatingTool: aToolName ]) ifFalse: [ ^ self ].
+	(self isApprovedForSession: aToolName) ifTrue: [ ^ self ].
 
 	decision := self confirmToolNamed: aToolName arguments: anArguments.
-
-	decision isAlways ifTrue: [
-		self sessionAllowList add: aToolName.
-		ChatPharoLogger logSystem: 'Tool added to sessionAllowList (Always)' details: (Dictionary new
-				at: 'tool' put: aToolName;
-				at: 'allowList' put: self sessionAllowList asArray;
-				yourself) ].
+	decision isAlways ifTrue: [ self sessionAllowList add: aToolName ].
 	decision isAllow ifTrue: [ ^ self ].
 
 	ChatPharoLogger logSystem: 'Tool denied by user' details: (Dictionary new
-			at: 'tool' put: aToolName;
-			at: 'reason' put: decision reason;
-			yourself).
+			 at: 'tool' put: aToolName;
+			 at: 'reason' put: decision reason;
+			 yourself).
 	^ aBlock value: (self cancellationPayloadFor: aToolName reason: decision reason)
 ]
 

@@ -5,7 +5,7 @@ ChatPharo is an AI coding assistant integrated into the Pharo IDE. This document
 ## Start here
 
 1. **Open ChatPharo**
-   - World menu: **ChatPharo → Temp ChatPharo**
+   - World menu: **ChatPharo → Temp ChatPharo** (reopening shows your saved conversations)
    - Or open **ChatPharo Settings** / **Setup Wizard** from the same menu.
 2. **Configure an agent** (local or cloud) in **Settings → Agent**.
 3. **Send a message** from the chat input.
@@ -36,6 +36,10 @@ ChatPharo is an AI coding assistant integrated into the Pharo IDE. This document
 - [Tools](tools.md)
 - [Skills](skills.md)
 - [Memory](memory.md)
+- [Context layers and saved conversations](context.md)
+- [Plans and the Task Manager](plans.md)
+- [Terminal agents (Claude Code, Codex, Gemini CLI)](terminal-agents.md)
+- [Local runtimes (Ollama, LM Studio)](local-runtimes.md)
 - [Multivers](multivers.md)
 - [MCP](mcp.md)
 - [Sandbox](sandbox.md)
@@ -57,6 +61,10 @@ ChatPharo is an AI coding assistant integrated into the Pharo IDE. This document
 | `architecture.md` | Layered architecture diagrams and subsystem overview. |
 | `message-flow.md` | Send message → prompt building → model call → tool loop → UI update. |
 | `features.md` | User-facing feature tour: chat, browser integration, attachments, feedback, logs, help. |
+| `context.md` | Context layers (environment, project, session, memory) and saved conversations. |
+| `plans.md` | Plan proposal, per-step validation, Task Manager, refusal reasons. |
+| `terminal-agents.md` | MCP bridge for Claude Code, Codex CLI and Gemini CLI. |
+| `local-runtimes.md` | Detecting and starting Ollama / LM Studio, fallback models. |
 | `configuration.md` | Settings model, defaults, persistence, and how toggles affect behavior. |
 | `agents.md` | Backends (Claude, Gemini, Ollama, LM Studio, DeepSeek, etc.), capabilities, configuration. |
 | `tools.md` | Built-in tools, custom tools, tool calling protocol, and execution lifecycle. |

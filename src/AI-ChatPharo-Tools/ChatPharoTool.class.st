@@ -128,14 +128,6 @@ ChatPharoTool class >> geminiWithAPIKey: apiKey system: system tools: tools [
 ]
 
 { #category : 'instance creation' }
-ChatPharoTool class >> lmStudioWithHost: host port: port system: system tools: tools [
-
-	| url |
-	url := 'http://' , host , ':' , port , '/v1'.
-	^ self baseURL: (ZnUrl fromString: url) system: system tools: tools
-]
-
-{ #category : 'instance creation' }
 ChatPharoTool class >> groqWithAPIKey: apiKey system: system [
 
 	^ self groqWithAPIKey: apiKey system: system tools: nil
@@ -149,6 +141,14 @@ ChatPharoTool class >> groqWithAPIKey: apiKey system: system tools: tools [
 		  apiKey: apiKey
 		  system: system
 		  tools: tools
+]
+
+{ #category : 'instance creation' }
+ChatPharoTool class >> lmStudioWithHost: host port: port system: system tools: tools [
+
+	| url |
+	url := 'http://' , host , ':' , port , '/v1'.
+	^ self baseURL: (ZnUrl fromString: url) system: system tools: tools
 ]
 
 { #category : 'instance creation' }
@@ -234,38 +234,25 @@ ChatPharoTool >> apiKey: anObject [
 
 { #category : 'initialization' }
 ChatPharoTool >> applyToolFunction: functionName arguments: arguments [
+	"Run the tool the model asked for and answer its result.
 
-"Look up the tool by name using the dictionary index (O(1) instead of linear scan),
-	 then fall back to the temporal tool registry.
+	 The tool is looked up first so that it can say whether it changes the image;
+	 the central confirmation gate (ChatPharoToolConfirmation) then asks the user.
+	 A denial is answered as a cancellation dictionary that goes back to the model
+	 verbatim, so the LLM sees the rejection, and its reason, and can adapt its plan."
 
-	 Before actually running a mutating tool, the central confirmation gate
-	 (ChatPharoToolConfirmation) asks the user. If the user denies, the
-	 gate returns a cancellation dictionary that is fed back to the model
-	 verbatim, so the LLM sees the rejection and can adapt its plan."
-
-	| tool temporalTool |
+	| tool |
 	onToolExecution ifNotNil: [ :blk | blk cull: functionName ].
-
+	tool := self toolNamed: functionName.
 	ChatPharoToolConfirmation default
 		guardToolNamed: functionName
 		arguments: arguments
+		mutating: (tool notNil and: [ tool isMutating ])
 		ifDeniedDo: [ :cancellation | ^ cancellation ].
-
-	"Try indexed tool lookup first"
-	tool := self toolIndex at: functionName ifAbsent: [ nil ].
-	tool ifNotNil: [
-		^ [ tool applyTo: arguments ]
-			on: Error
-			do: [ :e | Dictionary with: 'error' -> e messageText ] ].
-
-	"Fall back to temporal tool registry"
-	temporalTool := ChatPharoTemporalToolRegistry current toolNamed: functionName.
-	temporalTool ifNotNil: [
-		^ [ temporalTool applyTo: arguments ]
-			on: Error
-			do: [ :e | Dictionary with: 'error' -> e messageText ] ].
-
-	^ Dictionary with: 'error' -> ('There is no function named "{1}"' format: { functionName })
+	tool ifNil: [ ^ Dictionary with: 'error' -> ('There is no function named "{1}"' format: { functionName }) ].
+	^ [ tool applyTo: arguments ]
+		  on: Error
+		  do: [ :e | Dictionary with: 'error' -> e messageText ]
 ]
 
 { #category : 'accessing' }
@@ -328,6 +315,14 @@ ChatPharoTool >> cachedClient [
 		cachedClient := client ]
 ]
 
+{ #category : 'private' }
+ChatPharoTool >> chatMessagesFor: history [
+
+	^ Array streamContents: [ :stream |
+		  systemPrompt ifNotNil: [ stream nextPut: (Dictionary with: 'role' -> 'system' with: 'content' -> systemPrompt) ].
+		  history putOpenAIChatMessagesOn: stream ]
+]
+
 { #category : 'initialization' }
 ChatPharoTool >> client [
 
@@ -341,6 +336,15 @@ ChatPharoTool >> client [
 	ifNil: [
 		apiKey ifNotNil: [ client setBearerAuthentication: apiKey ] ].
 	^ client
+]
+
+{ #category : 'private' }
+ChatPharoTool >> completionMessageIn: responseJson [
+
+	| choices |
+	choices := responseJson at: 'choices' ifAbsent: [ #(  ) ].
+	choices ifEmpty: [ ChatPharoBackendError new signal: 'The backend answered without any completion choice.' ].
+	^ choices first at: 'message'
 ]
 
 { #category : 'accessing' }
@@ -384,60 +388,43 @@ ChatPharoTool >> friendlyErrorMessageFor: response [
 ]
 
 { #category : 'initialization' }
+ChatPharoTool >> getClosingResponseForHistory: history [
+	"Ask for a final written answer: tools stay declared, because the history refers to them,
+	 but the model may not call them, and any call it still emits is not executed."
+
+	| payload responseJson |
+	payload := self buildPayloadFor: (self chatMessagesFor: history).
+	(payload includesKey: 'tools') ifTrue: [ payload at: 'tool_choice' put: 'none' ].
+	responseJson := self postCompletion: payload.
+	^ self
+		  historyEntryForMessage: (self completionMessageIn: responseJson)
+		  toolCalls: nil
+		  usage: (responseJson at: 'usage' ifAbsent: [ nil ])
+]
+
+{ #category : 'initialization' }
 ChatPharoTool >> getResponseForHistory: history [
 
-	| messages data response message toolCalls thinkingText httpClient startedAt elapsedSeconds director responseJson usage |
-	messages := Array streamContents: [ :stream |
-			            systemPrompt ifNotNil: [ stream nextPut: (Dictionary with: 'role' -> 'system' with: 'content' -> systemPrompt) ].
-			            history putOpenAIChatMessagesOn: stream ].
-	data := self buildPayloadFor: messages.
-	data removeKey: 'chatpharo_ethics' ifAbsent: [ ].
-	httpClient := self cachedClient.
-	startedAt := DateAndTime now.
-	response := [
-		            httpClient
-			            resetEntity;
-			            entity: (ZnEntity json: (self jsonStringFor: (self normalizeForJson: data)));
-			            timeout: self requestTimeoutSeconds;
-			            post;
-			            response ] ensure: [
-			            elapsedSeconds := (DateAndTime now - startedAt) asSeconds.
-			            director := ChatPharoSettings default ethicsDirector.
-			            director ifNotNil: [ director lastRequestDurationSeconds: elapsedSeconds ] ].
-	response isSuccess ifFalse: [ Error signal: (self friendlyErrorMessageFor: response) ].
-	responseJson := STONJSON fromString: response contents.
-	message := (responseJson at: 'choices') first at: 'message'.
-	usage := responseJson at: 'usage' ifAbsent: [ nil ].
-	toolCalls := self toolCallsFromMessage: message.
-	thinkingText := nil.
-	toolCalls ifNotNil: [
-			toolCalls ifNotEmpty: [
-					thinkingText := String streamContents: [ :stream |
-							                stream
-								                nextPutAll: 'Tool calls made:';
-								                cr;
-								                cr.
-							                toolCalls do: [ :tc |
-									                stream
-										                nextPutAll: 'Function: ';
-										                nextPutAll: tc functionName;
-										                cr.
-									                stream
-										                nextPutAll: 'Arguments: ';
-										                nextPutAll: tc arguments asString;
-										                cr.
-									                tc content ifNotNil: [ :content |
-											                stream
-												                nextPutAll: 'Result: ';
-												                nextPutAll: (content copyFrom: 1 to: (content size min: 200));
-												                nextPutAll: '...';
-												                cr ].
-									                stream cr ] ] ] ].
-	^ (ChatPharoHistorySaver role: 'assistant' content: (message at: 'content' ifAbsent: [ nil ]) toolCalls: toolCalls)
-		  thinking: thinkingText;
-		  inputTokens: (usage ifNotNil: [ usage at: 'prompt_tokens' ifAbsent: [ nil ] ]);
-		  outputTokens: (usage ifNotNil: [ usage at: 'completion_tokens' ifAbsent: [ nil ] ]);
-		  totalTokens: (usage ifNotNil: [ usage at: 'total_tokens' ifAbsent: [ nil ] ]);
+	| responseJson message |
+	responseJson := self postCompletion: (self buildPayloadFor: (self chatMessagesFor: history)).
+	message := self withRecoveredToolCalls: (self completionMessageIn: responseJson).
+	^ self
+		  historyEntryForMessage: message
+		  toolCalls: (self toolCallsFromMessage: message)
+		  usage: (responseJson at: 'usage' ifAbsent: [ nil ])
+]
+
+{ #category : 'private' }
+ChatPharoTool >> historyEntryForMessage: message toolCalls: toolCalls usage: usage [
+
+	| extraction counts |
+	extraction := ChatPharoReasoningExtraction fromMessage: message.
+	counts := usage ifNil: [ Dictionary new ].
+	^ (ChatPharoHistorySaver role: 'assistant' content: extraction content toolCalls: toolCalls)
+		  thinking: (self thinkingTextForReasoning: extraction reasoning toolCalls: toolCalls);
+		  inputTokens: (counts at: 'prompt_tokens' ifAbsent: [ nil ]);
+		  outputTokens: (counts at: 'completion_tokens' ifAbsent: [ nil ]);
+		  totalTokens: (counts at: 'total_tokens' ifAbsent: [ nil ]);
 		  yourself
 ]
 
@@ -452,7 +439,7 @@ ChatPharoTool >> initializeWithBaseURL: initialBaseURL apiKey: initialAPIKey sys
 	toolIndex := nil.
 	onToolExecution := nil.
 	extraParameters := Dictionary new.
-	self model: self safeDefaultModelName.
+	model := nil.
 	cachedClient := nil.
 	cachedToolSchemas := nil.
 	lastTemporalToolCount := nil
@@ -467,8 +454,10 @@ ChatPharoTool >> jsonStringFor: anObject [
 
 { #category : 'accessing' }
 ChatPharoTool >> model [
+	"Without an explicit model, the first one the backend lists is used.
+	 It is resolved on demand so that building a client never costs a network round trip."
 
-	^ model
+	^ model ifNil: [ model := self safeDefaultModelName ]
 ]
 
 { #category : 'accessing' }
@@ -510,6 +499,12 @@ ChatPharoTool >> normalizeForJson: anObject [
 	^ anObject asString
 ]
 
+{ #category : 'private' }
+ChatPharoTool >> offeredToolNames [
+
+	^ (tools ifNil: [ #(  ) ]) collect: [ :each | each name ]
+]
+
 { #category : 'accessing' }
 ChatPharoTool >> onToolExecution [ 
 
@@ -520,6 +515,32 @@ ChatPharoTool >> onToolExecution [
 ChatPharoTool >> onToolExecution: aBlock [ 
 
         onToolExecution := aBlock
+]
+
+{ #category : 'private' }
+ChatPharoTool >> postCompletion: payload [
+
+	| httpClient startedAt response |
+	payload removeKey: 'chatpharo_ethics' ifAbsent: [  ].
+	httpClient := self cachedClient.
+	startedAt := DateAndTime now.
+	response := [
+		            httpClient
+			            resetEntity;
+			            entity: (ZnEntity json: (self jsonStringFor: (self normalizeForJson: payload)));
+			            timeout: self requestTimeoutSeconds;
+			            post;
+			            response ] ensure: [ self recordRequestDurationSince: startedAt ].
+	response isSuccess ifFalse: [
+		(ChatPharoBackendError status: response status message: (self friendlyErrorMessageFor: response)) signal ].
+	^ STONJSON fromString: response contents
+]
+
+{ #category : 'private' }
+ChatPharoTool >> recordRequestDurationSince: startedAt [
+
+	ChatPharoSettings default ethicsDirector ifNotNil: [ :director |
+		director lastRequestDurationSeconds: (DateAndTime now - startedAt) asSeconds ]
 ]
 
 { #category : 'initialization' }
@@ -586,20 +607,26 @@ ChatPharoTool >> systemPrompt: aString [
 ]
 
 { #category : 'private' }
+ChatPharoTool >> thinkingTextForReasoning: reasoning toolCalls: toolCalls [
+	"What the thinking panel shows for one model reply: its reasoning, then the tools it ran."
+
+	| parts |
+	parts := OrderedCollection new.
+	reasoning ifNotNil: [ parts add: reasoning ].
+	toolCalls isEmptyOrNil ifFalse: [ parts add: (self toolTraceFor: toolCalls) ].
+	parts ifEmpty: [ ^ nil ].
+	^ (String cr , String cr) join: parts
+]
+
+{ #category : 'private' }
 ChatPharoTool >> toolCallsFromMessage: message [
-	"Parse tool calls from the message and execute them.
-	 When multiple tool calls are present, they are executed in parallel
-	 using forked processes with a shared semaphore for synchronization."
+	"Parse the tool calls of the message and execute them in the order the model listed them.
+	 Order matters: a model routinely creates a class and adds methods to it in a single reply."
 
 	| calls |
 	calls := message at: 'tool_calls' ifAbsent: [ nil ].
-	calls isNil ifTrue: [ ^ nil ].
-
-	"For a single tool call, execute directly without parallelism overhead"
-	calls size = 1 ifTrue: [ ^ self toolCallsFromMessageSequential: calls ].
-
-	"For multiple tool calls, execute in parallel"
-	^ self toolCallsFromMessageParallel: calls
+	calls isEmptyOrNil ifTrue: [ ^ nil ].
+	^ self toolCallsFromMessageSequential: calls
 ]
 
 { #category : 'private' }
@@ -682,6 +709,24 @@ ChatPharoTool >> toolIndex [
 ]
 
 { #category : 'accessing' }
+ChatPharoTool >> toolNamed: aName [
+	"The declared tool with that name, else the temporal tool the model created, else nil."
+
+	^ self toolIndex at: aName ifAbsent: [ ChatPharoTemporalToolRegistry current toolNamed: aName ]
+]
+
+{ #category : 'private' }
+ChatPharoTool >> toolTraceFor: toolCalls [
+
+	^ String streamContents: [ :stream |
+		  stream
+			  nextPutAll: 'Tool calls made:';
+			  cr;
+			  cr.
+		  toolCalls do: [ :each | each printTraceOn: stream ] ]
+]
+
+{ #category : 'accessing' }
 ChatPharoTool >> tools [
 
 	^ tools
@@ -693,4 +738,20 @@ ChatPharoTool >> tools: anObject [
 	tools := anObject.
 	toolIndex := nil.
 	cachedToolSchemas := nil
+]
+
+{ #category : 'private' }
+ChatPharoTool >> withRecoveredToolCalls: message [
+	"Small local models often write a tool call as JSON text. Answer the message with that text
+	 turned into a proper tool call, or the message itself when it is an ordinary answer."
+
+	| calls |
+	(message at: 'tool_calls' ifAbsent: [ nil ]) isEmptyOrNil ifFalse: [ ^ message ].
+	calls := (ChatPharoTextualToolCallParser knownToolNames: self offeredToolNames) callsIn:
+		         (message at: 'content' ifAbsent: [ nil ]).
+	calls ifEmpty: [ ^ message ].
+	^ message copy
+		  at: 'tool_calls' put: calls;
+		  at: 'content' put: nil;
+		  yourself
 ]

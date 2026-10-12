@@ -37,20 +37,6 @@ ChatPharoPerformanceTest >> testAgentHistorySharedWhenAgentIsChatPharoAgent [
 ]
 
 { #category : 'running' }
-ChatPharoPerformanceTest >> testCacheHitAvoidsAdditionalBackendCall [
-
-        | calls |
-        chat sendMessage: 'cache-test'.
-        self waitForChatProcess.
-        calls := (mockAgent instVarNamed: #conversationHistory) size.
-
-        chat sendMessage: 'cache-test'.
-        self waitForChatProcess.
-
-        self assert: (mockAgent instVarNamed: #conversationHistory) size equals: calls
-]
-
-{ #category : 'running' }
 ChatPharoPerformanceTest >> testClearCacheAfterStressfulUsageLeavesHistoryIntact [
 
         | historyCount |
@@ -106,6 +92,21 @@ ChatPharoPerformanceTest >> testMultipleDistinctMessagesPopulateCacheAccordingly
         chat sendMessage: 'c'.
         self waitForChatProcess.
         self assert: cache size equals: 3
+]
+
+{ #category : 'tests' }
+ChatPharoPerformanceTest >> testRepeatedPromptInOngoingConversationIsAskedAgain [
+	"The same words mean something else once the conversation moved on: 'continue', 'yes', 'again'."
+
+	| calls |
+	chat sendMessage: 'cache-test'.
+	self waitForChatProcess.
+	calls := (mockAgent instVarNamed: #conversationHistory) size.
+
+	chat sendMessage: 'cache-test'.
+	self waitForChatProcess.
+
+	self assert: (mockAgent instVarNamed: #conversationHistory) size equals: calls + 1
 ]
 
 { #category : 'tests' }

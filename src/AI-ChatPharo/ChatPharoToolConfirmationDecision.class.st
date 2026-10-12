@@ -44,9 +44,17 @@ ChatPharoToolConfirmationDecision class >> deny [
 ]
 
 { #category : 'instance creation' }
+ChatPharoToolConfirmationDecision class >> denyBecause: aUserReason [
+	"The user refused and may have said why. Their words are what the model reads."
+
+	^ self denyWithReason: (aUserReason
+			   ifEmpty: [ 'The user denied this tool call without giving a reason.' ]
+			   ifNotEmpty: [ 'The user denied this tool call. Their reason: ' , aUserReason ])
+]
+
+{ #category : 'instance creation' }
 ChatPharoToolConfirmationDecision class >> denyWithReason: aString [
 
-	"IMPLEMNENT WHY AS REASON from the human"
 	^ self new
 		  outcome: #deny;
 		  reason: aString;

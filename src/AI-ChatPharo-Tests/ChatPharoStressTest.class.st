@@ -60,34 +60,15 @@ ChatPharoStressTest >> testCacheHandlesTenDistinctEntries [
 ]
 
 { #category : 'tests' }
-ChatPharoStressTest >> testCacheHitUnderLoadAvoidsAdditionalBackendCalls [
+ChatPharoStressTest >> testChatAlternatingDuplicatePromptsAreAllAnswered [
 
-        | initialCalls |
-        chat sendMessage: 'repeat'.
-        self waitForChatProcess.
-        initialCalls := mockAgent history size.
+	1 to: 11 do: [ :index |
+		chat sendMessage: 'repeat-A'.
+		self waitForChatProcess.
+		chat sendMessage: 'repeat-B'.
+		self waitForChatProcess ].
 
-        1 to: 20 do: [ :index |
-                chat sendMessage: 'repeat'.
-                self waitForChatProcess ].
-
-        self assert: mockAgent history size equals: initialCalls
-]
-
-{ #category : 'tests' }
-ChatPharoStressTest >> testChatAlternatingDuplicatePromptsLimitBackendCalls [
-        chat sendMessage: 'repeat-A'.
-        self waitForChatProcess.
-        chat sendMessage: 'repeat-B'.
-        self waitForChatProcess.
-
-        1 to: 10 do: [ :index |
-                chat sendMessage: 'repeat-A'.
-                self waitForChatProcess.
-                chat sendMessage: 'repeat-B'.
-                self waitForChatProcess ].
-
-        self assert: mockAgent history size equals: 2
+	self assert: mockAgent history size equals: 22
 ]
 
 { #category : 'tests' }
@@ -99,20 +80,6 @@ ChatPharoStressTest >> testChatCacheClearsAfterLargeNumberOfEntriesRemovesAll [
         chat clearCache.
 
         self assert: (chat instVarNamed: #cache) isEmpty
-]
-
-{ #category : 'tests' }
-ChatPharoStressTest >> testChatCacheStoresLatestResponseForRepeatedPrompt [
-        | firstAnswer |
-        chat sendMessage: 'cache-check'.
-        self waitForChatProcess.
-        firstAnswer := chat messages last answer.
-        mockAgent model: 'mock-advanced'.
-        chat sendMessage: 'cache-check'.
-        self waitForChatProcess.
-
-        self assert: chat messages last answer equals: firstAnswer.
-        self assert: mockAgent history size equals: 1
 ]
 
 { #category : 'tests' }
@@ -131,18 +98,17 @@ ChatPharoStressTest >> testChatCachedResponseStillTriggersCallback [
 ]
 
 { #category : 'tests' }
-ChatPharoStressTest >> testChatClearCacheAfterReuseForcesNewBackendCall [
-        chat sendMessage: 'repeat-cycle'.
-        self waitForChatProcess.
-        self assert: mockAgent history size equals: 1.
-        chat sendMessage: 'repeat-cycle'.
-        self waitForChatProcess.
-        self assert: mockAgent history size equals: 1.
-        chat clearCache.
-        chat sendMessage: 'repeat-cycle'.
-        self waitForChatProcess.
+ChatPharoStressTest >> testChatClearCacheKeepsAnsweringNewPrompts [
 
-        self assert: mockAgent history size equals: 2
+	chat sendMessage: 'repeat-cycle'.
+	self waitForChatProcess.
+	self assert: mockAgent history size equals: 1.
+	chat clearCache.
+	self assert: (chat instVarNamed: #cache) isEmpty.
+	chat sendMessage: 'repeat-cycle'.
+	self waitForChatProcess.
+
+	self assert: mockAgent history size equals: 2
 ]
 
 { #category : 'tests' }
@@ -292,6 +258,23 @@ ChatPharoStressTest >> testChatSendMessageBurstMaintainsLatestMessageContent [
 ]
 
 { #category : 'tests' }
+ChatPharoStressTest >> testChatSendMessageBurstOfDuplicatesMaintainsMessageAndHistoryCounts [
+
+	| initialCalls |
+	chat sendMessage: 'repeat-cache'.
+	self waitForChatProcess.
+	initialCalls := mockAgent history size.
+
+	1 to: 15 do: [ :index |
+		chat sendMessage: 'repeat-cache'.
+		self waitForChatProcess ].
+
+	self assert: mockAgent history size equals: initialCalls + 15.
+	self assert: chat messages size equals: 16.
+	self assert: (chat instVarNamed: #history) messages size equals: 32
+]
+
+{ #category : 'tests' }
 ChatPharoStressTest >> testChatSendMessageBurstPopulatesHistoryAndCacheConsistently [
         1 to: 30 do: [ :index |
                 chat sendMessage: 'burst-' , index asString.
@@ -302,32 +285,14 @@ ChatPharoStressTest >> testChatSendMessageBurstPopulatesHistoryAndCacheConsisten
 ]
 
 { #category : 'tests' }
-ChatPharoStressTest >> testChatSendMessageBurstUsesCacheForDuplicatesWhileMaintainingMessageCount [
-        | initialCalls |
-        chat sendMessage: 'repeat-cache'.
-        self waitForChatProcess.
-        initialCalls := mockAgent history size.
-
-        1 to: 15 do: [ :index |
-                chat sendMessage: 'repeat-cache'.
-                self waitForChatProcess ].
-
-        self assert: mockAgent history size equals: initialCalls.
-        self assert: chat messages size equals: 16.
-        self assert: (chat instVarNamed: #history) messages size equals: 32
-]
-
-{ #category : 'tests' }
 ChatPharoStressTest >> testChatSendMessageCachesAnswerForEachPrompt [
-        1 to: 5 do: [ :index |
-                | prompt message |
-                prompt := 'cache-proof-' , index asString.
-                chat sendMessage: prompt.
-                self waitForChatProcess.
-                message := chat messages last.
-                self assert: ((chat instVarNamed: #cache) at: prompt) equals: message answer ].
 
-        self assert: (chat instVarNamed: #cache) size equals: 5
+	1 to: 5 do: [ :index |
+		chat sendMessage: 'cache-proof-' , index asString.
+		self waitForChatProcess.
+		self assert: ((chat instVarNamed: #cache) includes: chat messages last answer) ].
+
+	self assert: (chat instVarNamed: #cache) size equals: 5
 ]
 
 { #category : 'tests' }
@@ -507,4 +472,34 @@ ChatPharoStressTest >> waitForChatProcess [
                 process := chat instVarNamed: #promptProcess.
                 process isNil or: [ process isTerminated ]
         ] whileFalse: [ (Delay forMilliseconds: 10) wait ]
+]
+
+{ #category : 'tests' }
+ChatPharoStressTest >> testRepeatedPromptAfterModelChangeIsAnsweredByNewModel [
+
+	| firstAnswer |
+	chat sendMessage: 'cache-check'.
+	self waitForChatProcess.
+	firstAnswer := chat messages last answer.
+	mockAgent model: 'mock-advanced'.
+	chat sendMessage: 'cache-check'.
+	self waitForChatProcess.
+
+	self deny: chat messages last answer equals: firstAnswer.
+	self assert: mockAgent history size equals: 2
+]
+
+{ #category : 'tests' }
+ChatPharoStressTest >> testRepeatedPromptUnderLoadReachesBackendEachTime [
+
+	| initialCalls |
+	chat sendMessage: 'repeat'.
+	self waitForChatProcess.
+	initialCalls := mockAgent history size.
+
+	1 to: 20 do: [ :index |
+		chat sendMessage: 'repeat'.
+		self waitForChatProcess ].
+
+	self assert: mockAgent history size equals: initialCalls + 20
 ]

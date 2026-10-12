@@ -1,154 +1,164 @@
 "
-Settings presenter for managing ChatPharo applications.
-Shows a list of available applications (MCP, Multivers, Skills, Memory, Custom Tools)
-with activation checkboxes. Selecting an application shows its configuration panel.
+I am the Applications tab of the settings: the optional capabilities of
+ChatPharo. Tick an application to activate it, select it to configure it and to
+see the tools it gives the model.
+
+- Tools — every built-in tool, with its switch.
+- Plans and tasks — plan first, validate each step, follow progress.
+- Context — what the model is told before each request.
+- Local runtimes — find and start Ollama or LM Studio.
+- Terminal agents — let Claude Code, Codex or Gemini CLI use the tools.
+- MCP, Multivers, Skills, Memory, Custom Tools.
 "
 Class {
 	#name : 'ChatPharoApplicationSettingsPresenter',
-	#superclass : 'SpPresenter',
-	#instVars : [
-		'model',
-		'applicationList',
-		'detailContainer',
-		'detailPresenter',
-		'applications'
-	],
+	#superclass : 'ChatPharoFeatureSettingsPresenter',
 	#category : 'AI-ChatPharo-Spec-Core',
 	#package : 'AI-ChatPharo-Spec',
 	#tag : 'Core'
 }
 
-{ #category : 'initialization' }
-ChatPharoApplicationSettingsPresenter >> applicationDefinitions [
-	"Return an ordered collection of application definitions.
-	 Each is a dictionary with keys: name, icon, enabledBlock, enableBlock, presenterBlock"
+{ #category : 'private - features' }
+ChatPharoApplicationSettingsPresenter >> contextFeature [
 
-	^ OrderedCollection new
-		add: (Dictionary new
-			at: 'name' put: 'MCP';
-			at: 'description' put: 'Model Context Protocol - connect to external tool servers';
-			at: 'icon' put: #network;
-			at: 'enabledBlock' put: [ model mcpEnabled ];
-			at: 'enableBlock' put: [ :val | model mcpEnabled: val ];
-			at: 'presenterBlock' put: [ ChatPharoMCPSettingsPresenter on: model ];
-			yourself);
-		add: (Dictionary new
-			at: 'name' put: 'Multivers';
-			at: 'description' put: 'Chain multiple agents in sequence for complex workflows';
-			at: 'icon' put: #branch;
-			at: 'enabledBlock' put: [ model multiversEnabled ];
-			at: 'enableBlock' put: [ :val | model multiversEnabled: val ];
-			at: 'presenterBlock' put: [ ChatPharoMultiversPresenter on: model ];
-			yourself);
-		add: (Dictionary new
-			at: 'name' put: 'Skills';
-			at: 'description' put: 'Manage skill files and automatic skill detection';
-			at: 'icon' put: #smallObjects;
-			at: 'enabledBlock' put: [ model skillToolsEnabled ];
-			at: 'enableBlock' put: [ :val | model skillToolsEnabled: val ];
-			at: 'presenterBlock' put: [ ChatPharoSkillsSettingsPresenter on: model ];
-			yourself);
-		add: (Dictionary new
-			at: 'name' put: 'Memory';
-			at: 'description' put: 'Long-term memory for conversation context';
-			at: 'icon' put: #history;
-			at: 'enabledBlock' put: [ model memoryEnabled ];
-			at: 'enableBlock' put: [ :val | model memoryEnabled: val ];
-			at: 'presenterBlock' put: [ ChatPharoMemoryPresenter on: model ];
-			yourself);
-		add: (Dictionary new
-			at: 'name' put: 'Custom Tools';
-			at: 'description' put: 'Define custom tools for the agent to use';
-			at: 'icon' put: #smallObjects;
-			at: 'enabledBlock' put: [ true ];
-			at: 'enableBlock' put: [ :val | "Custom tools are always available" ];
-			at: 'presenterBlock' put: [ ChatPharoCustomToolsSettingsPresenter on: model ];
-			yourself);
-		yourself
+	^ (ChatPharoSettingsFeature
+		   named: 'Context'
+		   description: 'What ChatPharo tells the model before each request: environment, project, session.'
+		   icon: #book)
+		  configuredBy: [ ChatPharoContextSettingsPresenter on: model ];
+		  yourself
 ]
 
-{ #category : 'initialization' }
-ChatPharoApplicationSettingsPresenter >> connectPresenters [
+{ #category : 'private - features' }
+ChatPharoApplicationSettingsPresenter >> customToolsFeature [
 
-	applicationList whenSelectedItemChangedDo: [ :item |
-		item ifNotNil: [ self showDetailFor: item ] ]
+	^ (ChatPharoSettingsFeature named: 'Custom Tools' description: 'Define custom tools for the agent to use' icon: #smallObjects)
+		  configuredBy: [ ChatPharoCustomToolsSettingsPresenter on: model ];
+		  yourself
 ]
 
-{ #category : 'layout' }
-ChatPharoApplicationSettingsPresenter >> defaultLayout [
+{ #category : 'accessing' }
+ChatPharoApplicationSettingsPresenter >> features [
 
-	^ SpPanedLayout newLeftToRight
-		positionOfSlider: 35 percent;
-		add: (SpBoxLayout newTopToBottom
-			spacing: 8;
-			add: (self newLabel label: 'Applications') expand: false;
-			add: applicationList;
-			yourself);
-		add: detailContainer;
-		yourself
+	^ {
+		  self toolsFeature.
+		  self plansFeature.
+		  self contextFeature.
+		  self localRuntimesFeature.
+		  self terminalAgentsFeature.
+		  self mcpFeature.
+		  self multiversFeature.
+		  self skillsFeature.
+		  self memoryFeature.
+		  self customToolsFeature }
 ]
 
-{ #category : 'initialization' }
-ChatPharoApplicationSettingsPresenter >> initializePresenters [
+{ #category : 'accessing' }
+ChatPharoApplicationSettingsPresenter >> listTitle [
 
-	super initializePresenters.
-	applications := self applicationDefinitions.
-
-	applicationList := self newTable
-		addColumn: (SpCheckBoxTableColumn new
-			title: 'Active';
-			width: 50;
-			evaluated: [ :app | (app at: 'enabledBlock') value ];
-			onActivation: [ :app | (app at: 'enableBlock') value: true ];
-			onDeactivation: [ :app | (app at: 'enableBlock') value: false ];
-			yourself);
-		addColumn: (SpImageTableColumn new
-			title: '';
-			width: 24;
-			evaluated: [ :app | self iconNamed: (app at: 'icon') ];
-			yourself);
-		addColumn: (SpStringTableColumn
-			title: 'Application'
-			evaluated: [ :app | app at: 'name' ]);
-		items: applications;
-		yourself.
-
-	detailContainer := SpBoxLayout newTopToBottom
-		spacing: 8;
-		borderWidth: 8;
-		add: (self newLabel label: 'Select an application to configure it.') expand: false;
-		yourself
+	^ 'Application'
 ]
 
-{ #category : 'accessing - model' }
-ChatPharoApplicationSettingsPresenter >> setModelBeforeInitialization: aSettings [
+{ #category : 'private - features' }
+ChatPharoApplicationSettingsPresenter >> localRuntimesFeature [
 
-	model := aSettings
+	^ (ChatPharoSettingsFeature
+		   named: 'Local runtimes'
+		   description: 'Ollama and LM Studio on this machine: detected, and started when needed.'
+		   icon: #smallHome)
+		  enabledWhen: [ model autoStartLocalRuntimes ] toggledBy: [ :state | model autoStartLocalRuntimes: state ];
+		  configuredBy: [ ChatPharoLocalRuntimesPresenter new ];
+		  yourself
 ]
 
-{ #category : 'accessing - model' }
-ChatPharoApplicationSettingsPresenter >> showDetailFor: anAppDefinition [
-	"Show the configuration presenter for the selected application"
+{ #category : 'private - features' }
+ChatPharoApplicationSettingsPresenter >> mcpFeature [
 
-	| presenter headerLabel descLabel |
-	headerLabel := self newLabel label: (anAppDefinition at: 'name').
-	descLabel := self newLabel label: (anAppDefinition at: 'description').
+	^ (ChatPharoSettingsFeature
+		   named: 'MCP'
+		   description: 'Model Context Protocol - connect to external tool servers'
+		   icon: #network)
+		  enabledWhen: [ model mcpEnabled ] toggledBy: [ :state | model mcpEnabled: state ];
+		  configuredBy: [ ChatPharoMCPSettingsPresenter on: model ];
+		  providingTools: [ model mcpToolsAsClients ];
+		  yourself
+]
 
-	presenter := (anAppDefinition at: 'presenterBlock') value.
+{ #category : 'private - features' }
+ChatPharoApplicationSettingsPresenter >> memoryFeature [
 
-	self layout: (SpPanedLayout newLeftToRight
-		positionOfSlider: 35 percent;
-		add: (SpBoxLayout newTopToBottom
-			spacing: 8;
-			add: (self newLabel label: 'Applications') expand: false;
-			add: applicationList;
-			yourself);
-		add: (SpBoxLayout newTopToBottom
-			spacing: 6;
-			borderWidth: 8;
-			add: headerLabel expand: false;
-			add: descLabel expand: false;
-			add: presenter;
-			yourself);
-		yourself)
+	^ (ChatPharoSettingsFeature named: 'Memory' description: 'Long-term memory for conversation context' icon: #history)
+		  enabledWhen: [ model memoryEnabled ] toggledBy: [ :state | model memoryEnabled: state ];
+		  configuredBy: [ ChatPharoMemoryPresenter on: model ];
+		  yourself
+]
+
+{ #category : 'private - features' }
+ChatPharoApplicationSettingsPresenter >> multiversFeature [
+
+	^ (ChatPharoSettingsFeature
+		   named: 'Multivers'
+		   description: 'Chain multiple agents in sequence for complex workflows'
+		   icon: #branch)
+		  enabledWhen: [ model multiversEnabled ] toggledBy: [ :state | model multiversEnabled: state ];
+		  configuredBy: [ ChatPharoMultiversPresenter on: model ];
+		  yourself
+]
+
+{ #category : 'private - features' }
+ChatPharoApplicationSettingsPresenter >> plansFeature [
+
+	^ (ChatPharoSettingsFeature
+		   named: 'Plans and tasks'
+		   description: 'ChatPharo proposes a plan, you validate each step, the Task Manager shows progress.'
+		   icon: #smallProfile)
+		  enabledWhen: [ model planValidationEnabled ] toggledBy: [ :state | model planValidationEnabled: state ];
+		  configuredBy: [ ChatPharoPlanSettingsPresenter new ];
+		  providingTools: [ ChatPharoPlanTools new tools ];
+		  yourself
+]
+
+{ #category : 'private - features' }
+ChatPharoApplicationSettingsPresenter >> skillsFeature [
+
+	^ (ChatPharoSettingsFeature
+		   named: 'Skills'
+		   description: 'Manage skill files and automatic skill detection'
+		   icon: #smallObjects)
+		  enabledWhen: [ model skillToolsEnabled ] toggledBy: [ :state | model skillToolsEnabled: state ];
+		  configuredBy: [ ChatPharoSkillsSettingsPresenter on: model ];
+		  yourself
+]
+
+{ #category : 'private - features' }
+ChatPharoApplicationSettingsPresenter >> terminalAgentsFeature [
+
+	^ (ChatPharoSettingsFeature
+		   named: 'Terminal agents'
+		   description: 'Let Claude Code, Codex CLI or Gemini CLI use the ChatPharo tools of this image.'
+		   icon: #smallRemoteOpen)
+		  enabledWhen: [ ChatPharoMCPBridge default isRunning ] toggledBy: [ :state | self runBridge: state ];
+		  configuredBy: [ ChatPharoMCPBridgePresenter on: ChatPharoMCPBridge default ];
+		  providingTools: [ (ChatPharoToolbox settings: model) enabledTools ];
+		  yourself
+]
+
+{ #category : 'private' }
+ChatPharoApplicationSettingsPresenter >> runBridge: aBoolean [
+
+	aBoolean
+		ifTrue: [ ChatPharoMCPBridge default start ]
+		ifFalse: [ ChatPharoMCPBridge default stop ]
+]
+
+{ #category : 'private - features' }
+ChatPharoApplicationSettingsPresenter >> toolsFeature [
+
+	^ (ChatPharoSettingsFeature
+		   named: 'Tools'
+		   description: 'Every tool ChatPharo can use on your image. Untick a tool to keep it away from the model.'
+		   icon: #smallConfiguration)
+		  configuredBy: [ self newLabel label: 'Tools that change the image ask for your confirmation before they run.' ];
+		  providingTools: [ (ChatPharoToolbox settings: model) builtInTools ];
+		  yourself
 ]

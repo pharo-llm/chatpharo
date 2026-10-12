@@ -26,7 +26,8 @@ Class {
 		'onToolExecution',
 		'maxTokens',
 		'topP',
-		'customParameters'
+		'customParameters',
+		'fallbackModels'
 	],
 	#category : 'AI-ChatPharo-Agent',
 	#package : 'AI-ChatPharo-Agent'
@@ -75,6 +76,35 @@ ChatPharoAgent class >> settingsPresenterFor: anAgent [
 	^ nil
 ]
 
+{ #category : 'private - conversation' }
+ChatPharoAgent >> answerTryingModels: modelNames from: historyMark [
+	"Ask each model in turn until one answers. Only failures that another model can
+	 plausibly avoid (usage limit reached, model missing) move on to the next one."
+
+	| notes |
+	notes := OrderedCollection new.
+	modelNames allButLast do: [ :each |
+		[ ^ self answerUsingModel: each notes: notes ]
+			on: ChatPharoBackendError
+			do: [ :error |
+				error canFallBackToAnotherModel ifFalse: [ error pass ].
+				self history truncateTo: historyMark.
+				notes add: (self fallbackNoteFor: each because: error) ] ].
+	^ self answerUsingModel: modelNames last notes: notes
+]
+
+{ #category : 'private - conversation' }
+ChatPharoAgent >> answerUsingModel: aModelName notes: notes [
+
+	| turn |
+	turn := ChatPharoConversationTurn client: (self completionClientForModel: aModelName) history: self history.
+	turn iterationLimit: self iterationLimit.
+	notes do: [ :each | turn addNote: each ].
+	response := turn run.
+	model := aModelName.
+	^ response content
+]
+
 { #category : 'accessing' }
 ChatPharoAgent >> browserSystemPrompt [ 
 
@@ -85,6 +115,26 @@ ChatPharoAgent >> browserSystemPrompt [
 ChatPharoAgent >> browserSystemPrompt: aString [ 
 
         browserSystemPrompt := aString
+]
+
+{ #category : 'private - conversation' }
+ChatPharoAgent >> completionClientForModel: aModelName [
+
+	| client |
+	client := self newCompletionClient.
+	aModelName ifNotEmpty: [ client model: aModelName ].
+	client requestParameters: self completionParameters.
+	client onToolExecution: onToolExecution.
+	^ client
+]
+
+{ #category : 'private - conversation' }
+ChatPharoAgent >> completionParameters [
+
+	| parameters |
+	parameters := self requestParameters copy.
+	self temperature ifNotNil: [ :value | parameters at: 'temperature' put: value ].
+	^ parameters
 ]
 
 { #category : 'accessing' }
@@ -116,18 +166,63 @@ ChatPharoAgent >> customParameters: aDictionary [
 	customParameters := aDictionary ifNil: [ Dictionary new ]
 ]
 
+{ #category : 'private - conversation' }
+ChatPharoAgent >> ensureBackendReady [
+	"Hook: make sure my backend can answer before a request. Local runtimes start their server here."
+]
+
+{ #category : 'accessing' }
+ChatPharoAgent >> fallbackModels [
+	"Model names tried, in order, when the selected model hits a usage limit or is missing."
+
+	^ fallbackModels ifNil: [ fallbackModels := OrderedCollection new ]
+]
+
+{ #category : 'accessing' }
+ChatPharoAgent >> fallbackModels: aCollection [
+
+	fallbackModels := aCollection asOrderedCollection
+]
+
+{ #category : 'private - conversation' }
+ChatPharoAgent >> fallbackNoteFor: aModelName because: anError [
+
+	| note |
+	note := 'Model "{1}" could not answer ({2}). Trying the next fallback model.' format: {
+			        aModelName.
+			        anError messageText }.
+	ChatPharoLogger logBackend: 'Model fallback' details: (Dictionary new
+			 at: 'model' put: aModelName;
+			 at: 'status' put: anError statusCode;
+			 at: 'error' put: anError messageText;
+			 yourself).
+	^ note
+]
+
 { #category : 'initialization' }
-ChatPharoAgent >> getResponseForPrompt: prompt [
+ChatPharoAgent >> getResponseForPrompt: userPrompt [
+	"Answer the model's written reply to userPrompt, running the tool calls it asks for.
+	 The full reply, with token usage and reasoning, stays available through #response.
+	 A turn that fails or is cancelled leaves no half-finished tool exchange in the history."
 
-	self subclassResponsibility
+	| historyMark |
+	self ensureBackendReady.
+	self history ensureEndsWithUser: userPrompt.
+	historyMark := self history size.
+	^ [ self answerTryingModels: self modelCandidates from: historyMark ] ifCurtailed: [
+		  self history truncateTo: historyMark ]
 ]
 
 { #category : 'accessing' }
-ChatPharoAgent >> history [                     ^ history
+ChatPharoAgent >> history [
+
+	^ history ifNil: [ history := ChatPharoHistory new ]
 ]
 
 { #category : 'accessing' }
-ChatPharoAgent >> history: aHistory [           history := aHistory
+ChatPharoAgent >> history: aHistory [
+
+	history := aHistory
 ]
 
 { #category : 'initialization' }
@@ -150,6 +245,12 @@ ChatPharoAgent >> initialize [
 ChatPharoAgent >> isConfigured [ 
 
     ^ true
+]
+
+{ #category : 'private - conversation' }
+ChatPharoAgent >> iterationLimit [
+
+	^ ChatPharoSettings default maximumIterations ifNil: [ ChatPharoConversationTurn defaultIterationLimit ]
 ]
 
 { #category : 'initialization' }
@@ -176,10 +277,26 @@ ChatPharoAgent >> model: anObject [
 	model := anObject
 ]
 
+{ #category : 'private - conversation' }
+ChatPharoAgent >> modelCandidates [
+	"The selected model first, then the fallbacks, without repetition."
+
+	^ (OrderedCollection with: model)
+		  addAll: (self fallbackModels reject: [ :each | each = model ]);
+		  yourself
+]
+
 { #category : 'initialization' }
 ChatPharoAgent >> modelInformation [ 
 
 	self subclassResponsibility
+]
+
+{ #category : 'private - conversation' }
+ChatPharoAgent >> newCompletionClient [
+	"Answer a ChatPharoTool configured for my backend: URL, credentials, system prompt and tools."
+
+	^ self subclassResponsibility
 ]
 
 { #category : 'accessing' }
@@ -192,6 +309,13 @@ ChatPharoAgent >> onToolExecution [
 ChatPharoAgent >> onToolExecution: aBlock [ 
 
         onToolExecution := aBlock
+]
+
+{ #category : 'accessing' }
+ChatPharoAgent >> packageName: aString [
+	"Focus my system prompt on the package the user is browsing."
+
+	self systemPrompt: (self browserSystemPrompt copyReplaceAll: '{packageName}' with: aString)
 ]
 
 { #category : 'accessing' }
@@ -230,10 +354,9 @@ ChatPharoAgent >> response: anObject [
 
 { #category : 'accessing' }
 ChatPharoAgent >> supportsThinkingContent [
-	"Default: agents do not provide thinking content.
-	Subclasses should override if they support it."
-	
-	^ false
+	"Reasoning is read from every OpenAI-style reply, whichever field or tag carries it."
+
+	^ true
 ]
 
 { #category : 'tools support' }
@@ -258,9 +381,23 @@ ChatPharoAgent >> systemPrompt: anObject [
 ]
 
 { #category : 'accessing' }
+ChatPharoAgent >> temperature [
+	"Backends that expose a temperature override this accessor."
+
+	^ nil
+]
+
+{ #category : 'accessing' }
 ChatPharoAgent >> testConnection [ 
 
         self subclassResponsibility
+]
+
+{ #category : 'tools support' }
+ChatPharoAgent >> tools [
+	"The tools offered to the model for this request."
+
+	^ ChatPharoToolbox new enabledTools
 ]
 
 { #category : 'initialization' }

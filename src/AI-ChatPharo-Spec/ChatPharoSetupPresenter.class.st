@@ -268,7 +268,7 @@ ChatPharoSetupPresenter >> initializeWindow: aWindowPresenter [
 
 	aWindowPresenter
 		title: 'ChatPharo Setup';
-		initialExtent: 500@400;
+		initialExtent: 680@560;
 		centered
 ]
 

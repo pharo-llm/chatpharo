@@ -103,17 +103,17 @@ ChatPharoUsabilityTest >> testChatClearChatTerminatesPromptProcess [
         self assert: (process isNil or: [ process isTerminated ])
 ]
 
-{ #category : 'running' }
-ChatPharoUsabilityTest >> testChatInitializationAddsWelcomeMessageToHistory [
-        | chat history |
-        ChatPharoSettings default welcomeMessageEnabled: true.
-        chat := ChatPharoChat new agent: ChatPharoMockAgent new.
-        history := chat instVarNamed: #history.
+{ #category : 'tests' }
+ChatPharoUsabilityTest >> testChatInitializationShowsWelcomeMessageWithoutSendingItToTheModel [
+	"A conversation opened by the assistant is rejected or misread by several backends."
 
-        self assert: history messages size equals: 1.
-        self assert: (history messages first role) equals: 'assistant'.
-        self assert: ((history messages first content)
-                includesSubstring: 'Welcome to ChatPharo')
+	| chat |
+	ChatPharoSettings default welcomeMessageEnabled: true.
+	chat := ChatPharoChat new agent: ChatPharoMockAgent new.
+
+	self assert: chat messages size equals: 1.
+	self assert: (chat messages first answer includesSubstring: 'Welcome to ChatPharo').
+	self assert: (chat instVarNamed: #history) messages isEmpty
 ]
 
 { #category : 'running' }
@@ -250,9 +250,11 @@ ChatPharoUsabilityTest >> testSettingsCodeFeatureEnabledByDefault [
         self assert: settings codeFeatureEnabled
 ]
 
-{ #category : 'running' }
-ChatPharoUsabilityTest >> testSettingsDefaultMaximumIterationsIsThree [
-        self assert: settings maximumIterations equals: 3
+{ #category : 'tests' }
+ChatPharoUsabilityTest >> testSettingsDefaultMaximumIterationsLeavesRoomForAgenticWork [
+	"Three tool rounds were not enough to read a class, change it and verify the change."
+
+	self assert: settings maximumIterations equals: 25
 ]
 
 { #category : 'running' }

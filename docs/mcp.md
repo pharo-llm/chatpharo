@@ -33,6 +33,10 @@ Typical steps:
 3. Connect servers.
 4. Verify tools appear in the enabled tool list (or are usable by the agent).
 
+## The other direction: ChatPharo as an MCP server
+
+To let Claude Code, Codex CLI or Gemini CLI use the tools of your image, see **terminal-agents.md**.
+
 ## Related docs
 
 - Tools: **tools.md**

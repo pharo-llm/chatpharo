@@ -74,37 +74,6 @@ ChatPharoDeepSeekAgent >> configurationErrorMessage [
 ]
 
 { #category : 'accessing' }
-ChatPharoDeepSeekAgent >> getResponseForPrompt: userPrompt [
-
-	| api result max count accIn accOut params |
-	api := ChatPharoTool deepSeekWithAPIKey: apiKey system: self systemPrompt tools: self tools.
-	self onToolExecution ifNotNil: [ api onToolExecution: self onToolExecution ].
-	model ifNotEmpty: [ api model: model ].
-		params := self requestParameters copy.
-	temperature ifNotNil: [ params at: 'temperature' put: temperature ].
-	api requestParameters: params.
-	self history ifNil: [ self history: ChatPharoHistory new ].
-	self history addMessage: (ChatPharoHistorySaver role: 'user' content: userPrompt).
-	result := api getResponseForHistory: self history.
-	self history addMessage: result.
-	accIn := result inputTokens ifNil: [ 0 ].
-	accOut := result outputTokens ifNil: [ 0 ].
-	max := ChatPharoSettings default maximumIterations ifNil: [ 1 ].
-	count := 0.
-	[ result toolCalls notNil and: [ count < max ] ] whileTrue: [
-			result := api getResponseForHistory: self history.
-			self history addMessage: result.
-			result inputTokens ifNotNil: [ :v | accIn := accIn + v ].
-			result outputTokens ifNotNil: [ :v | accOut := accOut + v ].
-			count := count + 1 ].
-	result inputTokens: accIn.
-	result outputTokens: accOut.
-	result totalTokens: accIn + accOut.
-	self response: result.
-	^ result content
-]
-
-{ #category : 'accessing' }
 ChatPharoDeepSeekAgent >> host [
 
 	^ host
@@ -149,6 +118,12 @@ ChatPharoDeepSeekAgent >> modelNames [
 	] on: Error do: [ self class modelNames ]
 ]
 
+{ #category : 'private - conversation' }
+ChatPharoDeepSeekAgent >> newCompletionClient [
+
+	^ ChatPharoTool deepSeekWithAPIKey: apiKey system: self systemPrompt tools: self tools
+]
+
 { #category : 'initialization' }
 ChatPharoDeepSeekAgent >> packageName: aString [
 
@@ -156,12 +131,6 @@ ChatPharoDeepSeekAgent >> packageName: aString [
 	self systemPrompt: (ChatPharoAgent defaultBrowserSystemPrompt
 			 copyReplaceAll: '{packageName}'
 			 with: packageName)
-]
-
-{ #category : 'accessing' }
-ChatPharoDeepSeekAgent >> supportsThinkingContent [
-
-	^ false
 ]
 
 { #category : 'tools support' }
@@ -208,16 +177,4 @@ ChatPharoDeepSeekAgent >> testConnection [
 		true ]
 		on: ZnHttpUnsuccessful , NetworkError
 		do: [ false ]
-]
-
-{ #category : 'tools support' }
-ChatPharoDeepSeekAgent >> tools [
-
-	| available settings customToolClients mcpToolClients |
-	settings := ChatPharoSettings default.
-	available := ChatPharoBrowserEnvironment new tools.
-	available := available select: [ :tool | settings browserToolsEnabled includes: tool name ].
-	customToolClients := settings customToolsAsClients.
-		mcpToolClients := settings mcpToolsAsClients.
-	^ available , customToolClients , mcpToolClients
 ]

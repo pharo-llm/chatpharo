@@ -71,6 +71,13 @@ ChatPharoLMStudioAgent class >> models [
 ]
 
 { #category : 'api' }
+ChatPharoLMStudioAgent class >> runtime [
+	"The local program that serves my models."
+
+	^ ChatPharoLMStudioRuntime new
+]
+
+{ #category : 'api' }
 ChatPharoLMStudioAgent class >> settingsPresenterFor: anAgent [
 
 	^ ChatPharoLMStudioSettingsPresenter on: anAgent
@@ -82,36 +89,12 @@ ChatPharoLMStudioAgent >> configurationErrorMessage [
 	^ 'Please complete all required fields.'
 ]
 
-{ #category : 'accessing' }
-ChatPharoLMStudioAgent >> getResponseForPrompt: userPrompt [
+{ #category : 'private - conversation' }
+ChatPharoLMStudioAgent >> ensureBackendReady [
+	"Start the local server when it is installed but not running, so the user does not have to."
 
-	| api result params accIn accOut |
-	api := ChatPharoTool
-		       lmStudioWithHost: host
-		       port: port
-		       system: self systemPrompt
-		       tools: self tools.
-	self onToolExecution ifNotNil: [ api onToolExecution: self onToolExecution ].
-	model ifNotEmpty: [ api model: model ].
-	params := self requestParameters copy.
-	temperature ifNotNil: [ params at: 'temperature' put: temperature ].
-	api requestParameters: params.
-	self history ifNil: [ self history: ChatPharoHistory new ].
-	self history addMessage: (ChatPharoHistorySaver role: 'user' content: userPrompt).
-	result := api getResponseForHistory: self history.
-	self history addMessage: result. 
-	accIn := result inputTokens ifNil: [ 0 ].
-	accOut := result outputTokens ifNil: [ 0 ].
-	[ result toolCalls isEmptyOrNil not ] whileTrue: [
-			result := api getResponseForHistory: self history.
-			self history addMessage: result.
-			result inputTokens ifNotNil: [ :v | accIn := accIn + v ].
-			result outputTokens ifNotNil: [ :v | accOut := accOut + v ] ].
-	result inputTokens: accIn.
-	result outputTokens: accOut.
-	result totalTokens: accIn + accOut.
-	self response: result.
-	^ result content
+	ChatPharoSettings default autoStartLocalRuntimes ifFalse: [ ^ self ].
+	self class runtime ensureRunning
 ]
 
 { #category : 'accessing' }
@@ -169,6 +152,16 @@ ChatPharoLMStudioAgent >> modelNames [
 	^ self class modelNames
 ]
 
+{ #category : 'private - conversation' }
+ChatPharoLMStudioAgent >> newCompletionClient [
+
+	^ ChatPharoTool
+		  lmStudioWithHost: host
+		  port: port
+		  system: self systemPrompt
+		  tools: self tools
+]
+
 { #category : 'initialization' }
 ChatPharoLMStudioAgent >> packageName: aString [
 
@@ -188,12 +181,6 @@ ChatPharoLMStudioAgent >> port [
 ChatPharoLMStudioAgent >> port: anObject [
 
 	port := anObject
-]
-
-{ #category : 'accessing' }
-ChatPharoLMStudioAgent >> supportsThinkingContent [
-
-	^ false
 ]
 
 { #category : 'tools support' }
@@ -239,16 +226,4 @@ ChatPharoLMStudioAgent >> testConnection [
 		true ]
 		on: ZnHttpUnsuccessful , NetworkError
 		do: [ false ]
-]
-
-{ #category : 'tools support' }
-ChatPharoLMStudioAgent >> tools [
-
-	| available settings customToolClients mcpToolClients |
-	settings := ChatPharoSettings default.
-	available := ChatPharoBrowserEnvironment new tools.
-	available := available select: [ :tool | settings browserToolsEnabled includes: tool name ]. 
-	customToolClients := settings customToolsAsClients.
-	  mcpToolClients := settings mcpToolsAsClients.
-    ^ available , customToolClients , mcpToolClients
 ]

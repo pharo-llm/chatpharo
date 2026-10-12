@@ -60,35 +60,6 @@ ChatPharoMistralAgent >> configurationErrorMessage [
 	^ 'Please complete all required fields.'
 ]
 
-{ #category : 'initialization' }
-ChatPharoMistralAgent >> getResponseForPrompt: userPrompt [
-
-	| api result params accIn accOut |
-	api := ChatPharoTool mistralWithAPIKey: apiKey system: self systemPrompt tools: self tools.
-	self onToolExecution ifNotNil: [ api onToolExecution: self onToolExecution ].
-	model ifNotEmpty: [ api model: model ].
-	params := self requestParameters copy.
-	temperature ifNotNil: [ params at: 'temperature' put: temperature ].
-	api requestParameters: params.
-	self history ifNil: [ self history: ChatPharoHistory new ].
-	self history addMessage: (ChatPharoHistorySaver role: 'user' content: userPrompt).
-	result := api getResponseForHistory: self history.
-	self history addMessage: result.
-
-	accIn := result inputTokens ifNil: [ 0 ].
-	accOut := result outputTokens ifNil: [ 0 ].
-	[ result toolCalls notNil ] whileTrue: [
-			result := api getResponseForHistory: self history.
-			self history addMessage: result.
-			result inputTokens ifNotNil: [ :v | accIn := accIn + v ].
-			result outputTokens ifNotNil: [ :v | accOut := accOut + v ] ].
-	result inputTokens: accIn.
-	result outputTokens: accOut.
-	result totalTokens: accIn + accOut.
-	self response: result.
-	^ result content
-]
-
 { #category : 'accessing' }
 ChatPharoMistralAgent >> host [
 
@@ -135,6 +106,12 @@ ChatPharoMistralAgent >> modelNames [
         ] on: Error do: [ self class modelNames ]
 ]
 
+{ #category : 'private - conversation' }
+ChatPharoMistralAgent >> newCompletionClient [
+
+	^ ChatPharoTool mistralWithAPIKey: apiKey system: self systemPrompt tools: self tools
+]
+
 { #category : 'accessing' }
 ChatPharoMistralAgent >> packageName [
 
@@ -148,12 +125,6 @@ ChatPharoMistralAgent >> packageName: aString [
         self systemPrompt: (ChatPharoAgent defaultBrowserSystemPrompt
                          copyReplaceAll: '{packageName}'
                          with: packageName)
-]
-
-{ #category : 'accessing' }
-ChatPharoMistralAgent >> supportsThinkingContent [
-
-	^ false
 ]
 
 { #category : 'tools support' }
@@ -199,16 +170,4 @@ ChatPharoMistralAgent >> testConnection [
                 true ]
                 on: ZnHttpUnsuccessful , NetworkError
                 do: [ false ]
-]
-
-{ #category : 'accessing' }
-ChatPharoMistralAgent >> tools [
-
-	| available settings customToolClients mcpToolClients |
-	settings := ChatPharoSettings default.
-	available := ChatPharoBrowserEnvironment new tools.
-	available := available select: [ :tool | settings browserToolsEnabled includes: tool name ]. 
-	customToolClients := settings customToolsAsClients.
-	  mcpToolClients := settings mcpToolsAsClients.
-    ^ available , customToolClients , mcpToolClients
 ]

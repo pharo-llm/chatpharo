@@ -1631,7 +1631,8 @@ ChatPharoBrowserEnvironment >> initializeWithEnvironment: env [
 	(Smalltalk hasClassNamed: #ChatPharoSkillEnvironment) ifTrue: [
 		tools addAll: (Smalltalk at: #ChatPharoSkillEnvironment) new tools ].
 (Smalltalk hasClassNamed: #ChatPharoFinderEnvironment) ifTrue: [
-		tools addAll: (Smalltalk at: #ChatPharoFinderEnvironment) new tools ]
+		tools addAll: (Smalltalk at: #ChatPharoFinderEnvironment) new tools ].
+	tools addAll: ChatPharoToolProvider allTools
 ]
 
 { #category : 'initialization' }

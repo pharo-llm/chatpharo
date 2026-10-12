@@ -84,16 +84,15 @@ ChatPharoChatBackendExtendedTest >> testAddUserMessageAddsMessageObject [
     self assert: chat messages last content equals: 'hi there'.
 ]
 
-{ #category : 'running' }
+{ #category : 'tests' }
 ChatPharoChatBackendExtendedTest >> testAddWelcomeMessageCreatesChatPharoEntry [
 
-    | welcome history |
-    chat addWelcomeMessage.
-    welcome := chat messages last.
-    history := chat instVarNamed: #history.
-    self assert: welcome assistantLabel equals: 'ChatPharo'.
-    self assert: (welcome answer beginsWith: 'Welcome to ChatPharo!').
-    self assert: history messages last role equals: 'assistant'.
+	| welcome |
+	chat addWelcomeMessage.
+	welcome := chat messages last.
+	self assert: welcome assistantLabel equals: 'ChatPharo'.
+	self assert: (welcome answer beginsWith: 'Welcome to ChatPharo!').
+	self assert: (chat instVarNamed: #history) messages isEmpty
 ]
 
 { #category : 'running' }

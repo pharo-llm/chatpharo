@@ -31,11 +31,24 @@ Class {
 		'onErrorReceived',
 		'onNewChatRequested',
 		'onTitleGenerated',
-		'titleGenerated'
+		'titleGenerated',
+		'id',
+		'title',
+		'archive',
+		'onQuestionRecorded'
 	],
 	#category : 'AI-ChatPharo',
 	#package : 'AI-ChatPharo'
 }
+
+{ #category : 'instance creation' }
+ChatPharoChat class >> fromArchiveEntry: aDictionary [
+	"Answer the chat stored in aDictionary by #archiveEntry."
+
+	^ self new
+		  restoreFromArchiveEntry: aDictionary;
+		  yourself
+]
 
 { #category : 'running' }
 ChatPharoChat >> addAnswerReceivedHandler: aBlock [
@@ -50,51 +63,31 @@ ChatPharoChat >> addAnswerReceivedHandler: aBlock [
 
 { #category : 'running' }
 ChatPharoChat >> addAssistantMessage: anAnswer [
+	"Show anAnswer as the reply to the last user message. The answer is either the written
+	 text or a reply object carrying it; usage and reasoning come from the agent's last reply."
 
-	| label multivers thinking answerText inTok outTok totTok |
-	thinking := nil.
-	inTok := nil.
-	outTok := nil.
-	totTok := nil.
-	answerText := anAnswer.
-	(answerText respondsTo: #content) ifTrue: [
-			thinking := answerText thinking.
-			(answerText respondsTo: #inputTokens) ifTrue: [
-					inTok := answerText inputTokens.
-					outTok := answerText outputTokens.
-					totTok := answerText totalTokens ].
-			answerText := answerText content ].
-	(self agent respondsTo: #response) ifTrue: [
-			| agentResponse |
-			agentResponse := self agent response.
-			agentResponse ifNotNil: [
-					thinking ifNil: [ (agentResponse respondsTo: #thinking) ifTrue: [ thinking := agentResponse thinking ] ].
-					inTok ifNil: [
-							(agentResponse respondsTo: #inputTokens) ifTrue: [
-									inTok := agentResponse inputTokens.
-									outTok := agentResponse outputTokens.
-									totTok := agentResponse totalTokens ] ] ] ]. 
-	(totTok isNil and: [ inTok notNil and: [ outTok notNil ] ]) ifTrue: [ totTok := inTok + outTok ].
-	history addAssistant: answerText.
-	multivers := ChatPharoSettings default multivers.
-	label := (multivers notNil and: [ multivers canExecute ])
-		         ifTrue: [ 'Multivers (' , multivers stepsCount asString , ' agents)' ]
-		         ifFalse: [
-				         (self agent isKindOf: ChatPharoNullAgent)
-					         ifTrue: [ 'Assistant bot' ]
-					         ifFalse: [ 'Assistant' ] ].
+	self addAssistantMessage: anAnswer details: (self replyDetailsFor: anAnswer)
+]
+
+{ #category : 'private' }
+ChatPharoChat >> addAssistantMessage: anAnswer details: aReply [
+
+	| text label |
+	text := self textOfAnswer: anAnswer.
+	label := self assistantLabel.
+	history ensureEndsWithAssistant: text.
 	messages last
-		answer: answerText;
+		answer: text;
 		assistantLabel: label;
-		thinking: (thinking ifNil: [ '' ]);
-		inputTokens: (inTok ifNil: [ 0 ]);
-		outputTokens: (outTok ifNil: [ 0 ]);
-		totalTokens: (totTok ifNil: [ 0 ]).
+		thinking: ((aReply ifNotNil: [ aReply thinking ]) ifNil: [ '' ]);
+		inputTokens: ((aReply ifNotNil: [ aReply inputTokens ]) ifNil: [ 0 ]);
+		outputTokens: ((aReply ifNotNil: [ aReply outputTokens ]) ifNil: [ 0 ]);
+		totalTokens: ((aReply ifNotNil: [ aReply totalTokens ]) ifNil: [ 0 ]).
 	ChatPharoLogger logBackend: 'Assistant response recorded' details: (Dictionary new
 			 at: 'chatId' put: self identityHash;
 			 at: 'agent' put: (ChatPharoLogger agentNameFor: self agent);
 			 at: 'assistantLabel' put: label;
-			 at: 'response' put: answerText;
+			 at: 'response' put: text;
 			 yourself)
 ]
 
@@ -119,6 +112,21 @@ ChatPharoChat >> addUserMessage: text [
 			 yourself).
 ]
 
+{ #category : 'private' }
+ChatPharoChat >> addUserMessage: aText prompt: aPrompt attachments: attachmentCollection [
+	"The reader sees aText and its attachments; the model reads aPrompt, which inlines the files."
+
+	| message |
+	history addUser: aPrompt.
+	self recordUserNameIfPresentIn: aText.
+	message := ChatPharoMessage new
+		           content: aText;
+		           attachments: attachmentCollection asOrderedCollection;
+		           yourself.
+	messages add: message.
+	onQuestionRecorded ifNotNil: [ :blk | blk value: message ]
+]
+
 { #category : 'running' }
 ChatPharoChat >> addUserMessage: text withAttachments: attachmentCollection [
 
@@ -133,16 +141,15 @@ ChatPharoChat >> addUserMessage: text withAttachments: attachmentCollection [
 ]
 
 { #category : 'initialization' }
-ChatPharoChat >> addWelcomeMessage [ 
+ChatPharoChat >> addWelcomeMessage [
+	"The greeting is for the reader only. It is not recorded in the LLM history: backends
+	 such as Gemini and Claude reject, or answer oddly to, a conversation opened by the assistant."
 
-        | text message |
-        text := 'Welcome to ChatPharo! I can answer questions, help explore your Pharo image, run snippets and search your code. Type a message to get started.'.
-        history addAssistant: text.
-        message := ChatPharoMessage new
-                        answer: text;
-                        assistantLabel: 'ChatPharo';
-                        yourself.
-        messages add: message
+	messages add: (ChatPharoMessage new
+			 answer:
+				 'Welcome to ChatPharo! I can answer questions, help explore your Pharo image, run snippets and search your code. Type a message to get started.';
+			 assistantLabel: 'ChatPharo';
+			 yourself)
 ]
 
 { #category : 'accessing' }
@@ -154,6 +161,64 @@ ChatPharoChat >> agent [
 ChatPharoChat >> agent: anObject [
 
 	agent := anObject
+]
+
+{ #category : 'private' }
+ChatPharoChat >> answerPrompt: aPrompt cachedAt: aCacheKey titledFrom: aText [
+
+	[
+		| answer |
+		answer := self askAgent: aPrompt.
+		cache at: aCacheKey put: answer.
+		self addAssistantMessage: answer.
+		self save.
+		self notifyAnswerReceived.
+		self generateTitleOnceFrom: aText ]
+		on: Error
+		do: [ :error | self reportSendFailure: error ]
+]
+
+{ #category : 'persistence' }
+ChatPharoChat >> archive: aChatArchive [
+	"From now on I save myself into aChatArchive after each answer. Nil makes me transient."
+
+	archive := aChatArchive
+]
+
+{ #category : 'persistence' }
+ChatPharoChat >> archiveEntry [
+	"What is written to disk: my identity and the LLM history, tool exchanges included."
+
+	^ Dictionary new
+		  at: 'id' put: self id;
+		  at: 'title' put: self title;
+		  at: 'messages' put: (Array streamContents: [ :stream | history putOpenAIChatMessagesOn: stream ]);
+		  yourself
+]
+
+{ #category : 'private' }
+ChatPharoChat >> askAgent: aPrompt [
+
+	| backend |
+	backend := self agent.
+	backend onToolExecution: [ :toolName | self triggerToolExecution: toolName ].
+	backend promptPrefix: (self buildPromptPrefixWithMemoryFor: aPrompt).
+	^ self
+		  inject: (self contextPromptFor: aPrompt)
+		  intoSystemPromptOf: backend
+		  during: [ self withRetries: [ backend getResponseForPrompt: aPrompt ] ]
+]
+
+{ #category : 'private' }
+ChatPharoChat >> assistantLabel [
+
+	| multivers |
+	multivers := ChatPharoSettings default multivers.
+	(multivers notNil and: [ multivers canExecute ]) ifTrue: [
+		^ 'Multivers (' , multivers stepsCount asString , ' agents)' ].
+	^ (self agent isKindOf: ChatPharoNullAgent)
+		  ifTrue: [ 'Assistant bot' ]
+		  ifFalse: [ 'Assistant' ]
 ]
 
 { #category : 'private' }
@@ -169,20 +234,11 @@ ChatPharoChat >> buildPromptPrefixWithMemoryFor: queryText [
 ]
 
 { #category : 'private' }
-ChatPharoChat >> withMetadataInjectedOn: anAgent do: aBlock [
-	"Temporarily append environment metadata to the agent's system prompt.
-	Restores the original prompt after the block completes (including errors).
-	No-op when metadata is disabled in settings or when the agent does not
-	implement the expected protocol (spy agents in tests are plain Objects)."
-	
-	| settings originalPrompt |
-	settings := ChatPharoSettings default.
-	settings metadataEnabled ifFalse: [ ^ aBlock value ].
-	(anAgent respondsTo: #systemPrompt) ifFalse: [ ^ aBlock value ].
-	(anAgent respondsTo: #systemPrompt:) ifFalse: [ ^ aBlock value ].
-	originalPrompt := anAgent systemPrompt.
-	anAgent systemPrompt: originalPrompt , String cr , String cr , settings metadataString.
-	^ aBlock ensure: [ anAgent systemPrompt: originalPrompt ]
+ChatPharoChat >> cacheKeyFor: aPrompt [
+	"An answer is only reusable for the same prompt in the same conversation state.
+	 Keying on the prompt alone made a second 'continue' or 'yes' replay an old answer."
+
+	^ history asPromptPrefix , aPrompt
 ]
 
 { #category : 'running' }
@@ -205,7 +261,24 @@ ChatPharoChat >> clearChat [
 	history clear.
 	messages removeAll.
 	self clearCache.
-	ChatPharoToolConfirmation default clearSessionApprovals
+	ChatPharoToolConfirmation default clearSessionApprovals.
+	archive ifNotNil: [ archive remove: self ]
+]
+
+{ #category : 'private' }
+ChatPharoChat >> contextPromptFor: aPrompt [
+	"Everything the model must know before reading the conversation:
+	 environment, project, session and long-term memory layers."
+
+	^ ChatPharoContext default promptFor: aPrompt
+]
+
+{ #category : 'private' }
+ChatPharoChat >> deliverCachedAnswer: anAnswer titledFrom: aText [
+
+	self addAssistantMessage: anAnswer details: nil.
+	self notifyAnswerReceived.
+	self generateTitleOnceFrom: aText
 ]
 
 { #category : 'accessing' }
@@ -271,6 +344,7 @@ ChatPharoChat >> generateTitleFrom: userText [
 									          s nextPut: char ] ].
 					cleanTitle := spaced ].
 			cleanTitle ifEmpty: [ cleanTitle := 'Chat' ].
+			self title: cleanTitle.
 			onTitleGenerated ifNotNil: [ :blk | blk value: cleanTitle ].
 			ChatPharoLogger logBackend: 'Chat title generated' details: (Dictionary new
 					 at: 'chatId' put: self identityHash;
@@ -282,6 +356,20 @@ ChatPharoChat >> generateTitleFrom: userText [
 							 at: 'chatId' put: self identityHash;
 							 at: 'error' put: ex messageText;
 							 yourself) ] ] fork
+]
+
+{ #category : 'private' }
+ChatPharoChat >> generateTitleOnceFrom: aText [
+
+	(titleGenerated or: [ onTitleGenerated isNil ]) ifTrue: [ ^ self ].
+	titleGenerated := true.
+	self generateTitleFrom: aText
+]
+
+{ #category : 'testing' }
+ChatPharoChat >> hasConversation [
+
+	^ history isEmpty not
 ]
 
 { #category : 'running' }
@@ -300,53 +388,68 @@ ChatPharoChat >> historyPromptPrefix [
 ]
 
 { #category : 'accessing' }
+ChatPharoChat >> id [
+	"A stable name for my file in the archive."
+
+	^ id ifNil: [ id := UUID new asString ]
+]
+
+{ #category : 'private - import' }
+ChatPharoChat >> importEntry: aDictionary [
+
+	| role content toolCalls |
+	role := aDictionary at: 'role'.
+	role = 'tool' ifTrue: [ ^ self importToolResult: aDictionary ].
+	content := aDictionary at: 'content' ifAbsent: [ '' ].
+	toolCalls := self importedToolCallsFrom: aDictionary.
+	"Files written by older versions repeat each plain message twice."
+	(toolCalls isNil and: [ history endsWithRole: role content: content ]) ifTrue: [ ^ self ].
+	history addMessage: (ChatPharoHistoryMessage role: role content: content toolCalls: toolCalls)
+]
+
+{ #category : 'accessing' }
 ChatPharoChat >> importFromJson: aJsonString [
+	"Replace this conversation by the one exported with #exportAsJson.
+	 The model sees it again exactly as it was, tool calls and their results included,
+	 so the conversation can be continued and not only read."
 
-	| parsedMessages currentUserContent lastRole lastContent |
+	| entries |
 	self clearChat.
-	parsedMessages := STONJSON fromString: aJsonString.
-	currentUserContent := nil.
-	lastRole := nil.
-	lastContent := nil.
-
-	parsedMessages do: [ :msgDict |
-			| role content toolCalls historyMsg |
-			role := msgDict at: 'role'.
-			content := msgDict at: 'content' ifAbsent: [ '' ].
-			(role = lastRole and: [ content = lastContent ]) ifFalse: [
-					toolCalls := msgDict at: 'tool_calls' ifAbsent: [ nil ]. "Create tool calls if present"
-					toolCalls ifNotNil: [
-							toolCalls := toolCalls collect: [ :tcDict |
-									             | funcDict |
-									             funcDict := tcDict at: 'function' ifAbsent: [ Dictionary new ].
-									             ChatPharoHistorySaverToolCall
-										             id: (tcDict at: 'id' ifAbsent: [ '' ])
-										             functionName: (funcDict at: 'name' ifAbsent: [ '' ])
-										             arguments: (funcDict at: 'arguments' ifAbsent: [ '' ])
-										             content: nil ] ]. 
-					historyMsg := ChatPharoHistoryMessage role: role content: content toolCalls: toolCalls.
-					history addMessage: historyMsg.
-					role = 'user' ifTrue: [ currentUserContent := content ].
-					role = 'assistant' ifTrue: [
-							messages add: (ChatPharoMessage new
-									 content: (currentUserContent ifNil: [ '' ]);
-									 answer: (content ifNil: [ '' ]);
-									 assistantLabel: 'Assistant';
-									 yourself).
-							currentUserContent := nil ].
-					lastRole := role.
-					lastContent := content ] ].
-	currentUserContent ifNotNil: [
-			messages add: (ChatPharoMessage new
-					 content: currentUserContent;
-					 yourself) ].
-
+	entries := STONJSON fromString: aJsonString.
+	entries do: [ :each | self importEntry: each ].
+	self rebuildMessagesFromHistory.
+	self save.
 	ChatPharoLogger logBackend: 'Chat imported from JSON' details: (Dictionary new
 			 at: 'chatId' put: self identityHash;
-			 at: 'messagesImported' put: parsedMessages size;
+			 at: 'messagesImported' put: entries size;
 			 yourself).
-
 	self notifyChatReset
+]
+
+{ #category : 'private - import' }
+ChatPharoChat >> importToolResult: aDictionary [
+	"A tool result belongs to the call that asked for it; that call replays it to the model."
+
+	| callId |
+	history isEmpty ifTrue: [ ^ self ].
+	callId := aDictionary at: 'tool_call_id' ifAbsent: [ ^ self ].
+	(history messages last toolCalls ifNil: [ #(  ) ])
+		detect: [ :each | each id = callId ]
+		ifFound: [ :call | call content: (aDictionary at: 'content' ifAbsent: [ nil ]) ]
+]
+
+{ #category : 'private - import' }
+ChatPharoChat >> importedToolCallsFrom: aDictionary [
+
+	^ (aDictionary at: 'tool_calls' ifAbsent: [ nil ]) ifNotNil: [ :calls |
+		  calls collect: [ :each |
+			  | function |
+			  function := each at: 'function' ifAbsent: [ Dictionary new ].
+			  ChatPharoHistorySaverToolCall
+				  id: (each at: 'id' ifAbsent: [ '' ])
+				  functionName: (function at: 'name' ifAbsent: [ '' ])
+				  arguments: (function at: 'arguments' ifAbsent: [ '' ])
+				  content: nil ] ]
 ]
 
 { #category : 'initialization' }
@@ -360,6 +463,32 @@ ChatPharoChat >> initialize [
 	cache := Dictionary new.
 	titleGenerated := false.
 	ChatPharoSettings default welcomeMessageEnabled ifTrue: [ self addWelcomeMessage ]
+]
+
+{ #category : 'private' }
+ChatPharoChat >> inject: aContextString intoSystemPromptOf: anAgent during: aBlock [
+	"Extend the agent's system prompt with aContextString for the duration of aBlock.
+	 Agents that have no system prompt protocol (test doubles) are asked as they are."
+
+	| originalPrompt |
+	aContextString ifEmpty: [ ^ aBlock value ].
+	((anAgent respondsTo: #systemPrompt) and: [ anAgent respondsTo: #systemPrompt: ]) ifFalse: [ ^ aBlock value ].
+	originalPrompt := anAgent systemPrompt.
+	anAgent systemPrompt: originalPrompt , String cr , String cr , aContextString.
+	^ aBlock ensure: [ anAgent systemPrompt: originalPrompt ]
+]
+
+{ #category : 'testing' }
+ChatPharoChat >> isAnswering [
+	"Whether a request is in flight."
+
+	^ promptProcess notNil and: [ promptProcess isTerminated not ]
+]
+
+{ #category : 'private' }
+ChatPharoChat >> isTextFile: aFileReference [
+
+	^ (aFileReference mimeTypes ifNil: [ #(  ) ]) anySatisfy: [ :each | each main = 'text' ]
 ]
 
 { #category : 'accessing' }
@@ -391,6 +520,12 @@ ChatPharoChat >> messages: anObject [
 	messages := anObject
 ]
 
+{ #category : 'private' }
+ChatPharoChat >> notifyAnswerReceived [
+
+	onAnswerReceived ifNotNil: [ :blk | blk value: messages last ]
+]
+
 { #category : 'initialization' }
 ChatPharoChat >> notifyChatReset [ 
 
@@ -401,6 +536,45 @@ ChatPharoChat >> notifyChatReset [
 ChatPharoChat >> presenter [
 
 	^ ChatPharoChatPresenter on: self
+]
+
+{ #category : 'private' }
+ChatPharoChat >> promptFor: aText withAttachments: attachmentCollection [
+	"The text sent to the model: the user's words followed by the attached files."
+
+	attachmentCollection ifEmpty: [ ^ aText ].
+	^ String streamContents: [ :stream |
+		  stream
+			  nextPutAll: aText;
+			  cr;
+			  cr;
+			  nextPutAll: 'Attached files:';
+			  cr.
+		  attachmentCollection do: [ :each | self writeAttachment: each on: stream ] ]
+]
+
+{ #category : 'private - import' }
+ChatPharoChat >> rebuildMessagesFromHistory [
+	"Derive the transcript the reader sees from the LLM history: one entry per user
+	 question with its final written answer. Tool round trips stay in the history only."
+
+	| pending |
+	messages removeAll.
+	pending := nil.
+	history messages do: [ :each |
+		each role = 'user' ifTrue: [
+			pending := ChatPharoMessage new
+				           content: (each content ifNil: [ '' ]);
+				           yourself.
+			messages add: pending ].
+		(each role = 'assistant' and: [ each toolCalls isEmptyOrNil ]) ifTrue: [
+			pending ifNil: [
+				pending := ChatPharoMessage new.
+				messages add: pending ].
+			pending
+				answer: (each content ifNil: [ '' ]);
+				assistantLabel: 'Assistant'.
+			pending := nil ] ]
 ]
 
 { #category : 'memory' }
@@ -467,6 +641,16 @@ ChatPharoChat >> recordUserPreference: preferenceText [
 			 yourself)
 ]
 
+{ #category : 'private' }
+ChatPharoChat >> replyDetailsFor: anAnswer [
+	"Answer the object carrying usage and reasoning for anAnswer, or nil when there is none.
+	 Agents answer plain text and keep the full reply in #response; test doubles may do neither."
+
+	(anAnswer respondsTo: #inputTokens) ifTrue: [ ^ anAnswer ].
+	(self agent respondsTo: #response) ifFalse: [ ^ nil ].
+	^ self agent response ifNotNil: [ :reply | (reply respondsTo: #inputTokens) ifTrue: [ reply ] ]
+]
+
 { #category : 'accessing' }
 ChatPharoChat >> reportMessageLimitReached [
 
@@ -481,6 +665,16 @@ ChatPharoChat >> reportMessageLimitReached [
 			at: 'messages' put: messages size;
 			yourself).
 	onErrorReceived ifNotNil: [ :blk | blk value: text ]
+]
+
+{ #category : 'private' }
+ChatPharoChat >> reportSendFailure: anError [
+
+	ChatPharoLogger logBackend: 'Error during message send' details: (Dictionary new
+			 at: 'chatId' put: self identityHash;
+			 at: 'error' put: anError messageText;
+			 yourself).
+	onErrorReceived ifNotNil: [ :blk | blk value: anError messageText ]
 ]
 
 { #category : 'initialization' }
@@ -499,133 +693,50 @@ ChatPharoChat >> resetConversation [
 	self cancelMessage.
 	history clear.
 	messages removeAll.
+	archive ifNotNil: [ archive remove: self ].
 	self clearCache.
 	ChatPharoSettings default welcomeMessageEnabled ifTrue: [ self addWelcomeMessage ].
 	self notifyChatReset
 ]
 
+{ #category : 'persistence' }
+ChatPharoChat >> restoreFromArchiveEntry: aDictionary [
+
+	id := aDictionary at: 'id' ifAbsent: [ nil ].
+	title := aDictionary at: 'title' ifAbsent: [ nil ].
+	(aDictionary at: 'messages' ifAbsent: [ #(  ) ]) do: [ :each | self importEntry: each ].
+	self rebuildMessagesFromHistory.
+	titleGenerated := title notNil
+]
+
+{ #category : 'persistence' }
+ChatPharoChat >> save [
+	"Persist me when I belong to an archive. Chats opened for a quick action do not."
+
+	archive ifNotNil: [ archive save: self ]
+]
+
 { #category : 'running' }
 ChatPharoChat >> sendMessage: aText [
 
-	| answer multivers promptWithMemory historyPrefix combinedPrefix  |
-	self messageLimitReached ifTrue: [
-		^ self reportMessageLimitReached ].
-	self addUserMessage: aText.
-
-	(cache includesKey: aText) ifTrue: [
-			answer := cache at: aText.
-			self addAssistantMessage: answer.
-			onAnswerReceived ifNotNil: [ :blk | blk value: messages last ].
-			^ self ].
-	multivers := ChatPharoSettings default multivers.
-	(multivers notNil and: [ multivers canExecute ]) ifTrue: [ ^ self sendMessageViaMultivers: aText ].
-	promptProcess := [
-		                 [
-			                 | backend retryHandler|
-			                 backend := self agent.
-			                 backend onToolExecution: [ :toolName | self triggerToolExecution: toolName ].
-			                 promptWithMemory := self buildPromptPrefixWithMemoryFor: aText.
-
-			                 backend promptPrefix: promptWithMemory.
-			                  
-			                 "Use retry handler if enabled"
-			                 ChatPharoSettings default retryEnabled
-				                 ifTrue: [
-					                 retryHandler := ChatPharoSettings default createRetryHandler.
-					                 retryHandler onRetryAttempt: [ :attempt :max |
-						                 onErrorReceived ifNotNil: [ :blk |
-							                 blk value: 'Connection lost. Retrying attempt ' , attempt asString , '/' , max asString , '...' ] ].
-					                 answer := self withMetadataInjectedOn: backend do: [
-						                 retryHandler executeWithRetry: [ backend getResponseForPrompt: aText ] ] ]
-				                 ifFalse: [
-					                 answer := self withMetadataInjectedOn: backend do: [
-						                 backend getResponseForPrompt: aText ] ].
-			                 cache at: aText put: answer.
-			                 self addAssistantMessage: answer.
-			                 onAnswerReceived ifNotNil: [ :blk | blk value: messages last ] ]
-			                 on: Error
-			                 do: [ :ex |
-					                 ChatPharoLogger logBackend: 'Error during message send' details: (Dictionary new
-							                  at: 'chatId' put: self identityHash;
-							                  at: 'error' put: ex messageText;
-							                  yourself).
-					                 onErrorReceived ifNotNil: [ :blk | blk value: ex messageText ] ] ] fork
+	self sendMessage: aText withAttachments: #(  )
 ]
 
 { #category : 'running' }
 ChatPharoChat >> sendMessage: aText withAttachments: attachmentCollection [
+	"Record the user's message and answer it asynchronously.
+	 Listeners are told through whenAnswerReceivedDo: or whenErrorReceivedDo:."
 
-	| answer multivers promptWithMemory textWithAttachments  |
-		self messageLimitReached ifTrue: [
-		^ self reportMessageLimitReached ].
-	self addUserMessage: aText withAttachments: attachmentCollection.
-	textWithAttachments := aText.
-	attachmentCollection ifNotEmpty: [
-			textWithAttachments := String streamContents: [ :stream |
-					                       stream nextPutAll: aText.
-					                       stream
-						                       cr;
-						                       cr.
-					                       stream nextPutAll: 'Attached files:'.
-					                       stream cr.
-					                       attachmentCollection do: [ :fileRef |
-							                       stream nextPutAll: '- '.
-							                       stream nextPutAll: fileRef basename.
-							                       stream nextPutAll: ' ('.
-							                       stream nextPutAll: fileRef size asString.
-							                       stream nextPutAll: ' bytes)'.
-							                       stream cr.
-							                       (fileRef mimeTypes anySatisfy: [ :mime |
-									                        (mime respondsTo: #main)
-										                        ifTrue: [ mime main = 'text' ]
-										                        ifFalse: [ mime asString beginsWith: 'text/' ] ]) ifTrue: [
-									                       stream nextPutAll: '  Content: '.
-									                       stream cr.
-									                       stream nextPutAll: fileRef contents.
-									                       stream cr ] ] ] ].
+	| prompt cacheKey multivers |
+	self messageLimitReached ifTrue: [ ^ self reportMessageLimitReached ].
+	prompt := self promptFor: aText withAttachments: attachmentCollection.
+	cacheKey := self cacheKeyFor: prompt.
+	self addUserMessage: aText prompt: prompt attachments: attachmentCollection.
 
-	(cache includesKey: textWithAttachments) ifTrue: [
-			answer := cache at: textWithAttachments.
-			self addAssistantMessage: answer.
-			onAnswerReceived ifNotNil: [ :blk | blk value: messages last ].
-			(titleGenerated not and: [ onTitleGenerated notNil ]) ifTrue: [
-					titleGenerated := true.
-					self generateTitleFrom: aText ].
-			^ self ].
+	(cache includesKey: cacheKey) ifTrue: [ ^ self deliverCachedAnswer: (cache at: cacheKey) titledFrom: aText ].
 	multivers := ChatPharoSettings default multivers.
-	(multivers notNil and: [ multivers canExecute ]) ifTrue: [ ^ self sendMessageViaMultivers: textWithAttachments ].
-	promptProcess := [
-		                 [
-			                 | backend retryHandler |
-			                 backend := self agent.
-			                 backend onToolExecution: [ :toolName | self triggerToolExecution: toolName ].
-			                 promptWithMemory := self buildPromptPrefixWithMemoryFor: textWithAttachments.
-			                 backend promptPrefix: promptWithMemory.
-			                 "Use retry handler if enabled"
-			                 ChatPharoSettings default retryEnabled
-				                 ifTrue: [
-					                 retryHandler := ChatPharoSettings default createRetryHandler.
-					                 retryHandler onRetryAttempt: [ :attempt :max |
-						                 onErrorReceived ifNotNil: [ :blk |
-							                 blk value: 'Connection lost. Retrying attempt ' , attempt asString , '/' , max asString , '...' ] ].
-					                 answer := self withMetadataInjectedOn: backend do: [
-						                 retryHandler executeWithRetry: [ backend getResponseForPrompt: textWithAttachments ] ] ]
-				                 ifFalse: [
-					                 answer := self withMetadataInjectedOn: backend do: [
-						                 backend getResponseForPrompt: textWithAttachments ] ].
-			                 cache at: textWithAttachments put: answer.
-			                 self addAssistantMessage: answer.
-			                 onAnswerReceived ifNotNil: [ :blk | blk value: messages last ].
-			                 (titleGenerated not and: [ onTitleGenerated notNil ]) ifTrue: [
-					                 titleGenerated := true.
-					                 self generateTitleFrom: aText ] ]
-			                 on: Error
-			                 do: [ :ex |
-					                 ChatPharoLogger logBackend: 'Error during message send' details: (Dictionary new
-							                  at: 'chatId' put: self identityHash;
-							                  at: 'error' put: ex messageText;
-							                  yourself).
-					                 onErrorReceived ifNotNil: [ :blk | blk value: ex messageText ] ] ] fork
+	(multivers notNil and: [ multivers canExecute ]) ifTrue: [ ^ self sendMessageViaMultivers: prompt ].
+	promptProcess := [ self answerPrompt: prompt cachedAt: cacheKey titledFrom: aText ] fork
 ]
 
 { #category : 'running' }
@@ -699,6 +810,28 @@ ChatPharoChat >> summarizeConversationToMemory [
 			 yourself)
 ]
 
+{ #category : 'private' }
+ChatPharoChat >> textOfAnswer: anAnswer [
+
+	^ (anAnswer respondsTo: #inputTokens)
+		  ifTrue: [ anAnswer content ]
+		  ifFalse: [ anAnswer ]
+]
+
+{ #category : 'accessing' }
+ChatPharoChat >> title [
+	"The name shown on my tab, or nil while nobody named me."
+
+	^ title
+]
+
+{ #category : 'accessing' }
+ChatPharoChat >> title: aString [
+
+	title := aString.
+	self save
+]
+
 { #category : 'running' }
 ChatPharoChat >> triggerToolExecution [
 
@@ -711,10 +844,10 @@ ChatPharoChat >> triggerToolExecution: aToolName [
 ]
 
 { #category : 'running' }
-ChatPharoChat >> waitForPromptProcessDone [ 
-    | promptProcess |
-promptProcess ifNotNil: [ promptProcess waitUntil: [ promptProcess isTerminated ] ].
+ChatPharoChat >> waitForPromptProcessDone [
+	"Block the caller until the request in flight, if any, has finished."
 
+	[ self isAnswering ] whileTrue: [ (Delay forMilliseconds: 20) wait ]
 ]
 
 { #category : 'running' }
@@ -741,6 +874,13 @@ ChatPharoChat >> whenNewChatRequestedDo: aBlock [
 	onNewChatRequested := aBlock
 ]
 
+{ #category : 'running' }
+ChatPharoChat >> whenQuestionRecordedDo: aBlock [
+	"aBlock is evaluated with the message as soon as the user's question is recorded, before the model is asked."
+
+	onQuestionRecorded := aBlock
+]
+
 { #category : 'enumerating' }
 ChatPharoChat >> whenTitleGeneratedDo: aBlock [
 
@@ -751,4 +891,45 @@ ChatPharoChat >> whenTitleGeneratedDo: aBlock [
 ChatPharoChat >> whenToolExecutionDo: aBlock [ 
 
         onToolExecution := aBlock
+]
+
+{ #category : 'private' }
+ChatPharoChat >> withMetadataInjectedOn: anAgent do: aBlock [
+	"Kept for callers that only want the environment metadata; chats inject the full context."
+
+	ChatPharoSettings default metadataEnabled ifFalse: [ ^ aBlock value ].
+	^ self
+		  inject: ChatPharoSettings default metadataString
+		  intoSystemPromptOf: anAgent
+		  during: aBlock
+]
+
+{ #category : 'private' }
+ChatPharoChat >> withRetries: aBlock [
+
+	| retryHandler |
+	ChatPharoSettings default retryEnabled ifFalse: [ ^ aBlock value ].
+	retryHandler := ChatPharoSettings default createRetryHandler.
+	retryHandler onRetryAttempt: [ :attempt :max |
+		onErrorReceived ifNotNil: [ :blk |
+			blk value: 'Connection lost. Retrying attempt ' , attempt asString , '/' , max asString , '...' ] ].
+	^ retryHandler executeWithRetry: aBlock
+]
+
+{ #category : 'private' }
+ChatPharoChat >> writeAttachment: aFileReference on: aStream [
+
+	aStream
+		nextPutAll: '- ';
+		nextPutAll: aFileReference basename;
+		nextPutAll: ' (';
+		print: aFileReference size;
+		nextPutAll: ' bytes)';
+		cr.
+	(self isTextFile: aFileReference) ifFalse: [ ^ self ].
+	aStream
+		nextPutAll: '  Content: ';
+		cr;
+		nextPutAll: aFileReference contents;
+		cr
 ]

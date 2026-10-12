@@ -312,20 +312,18 @@ ChatPharoChatTest >> testRecoveryAfterFailureAllowsSubsequentMessages [
 ]
 
 { #category : 'running' }
-ChatPharoChatTest >> testSameQuestionReturnsCachedAnswer [
+ChatPharoChatTest >> testSameQuestionInOngoingConversationIsAskedAgain [
 
-	| firstSize firstAnswer |
+	| firstSize |
 	chat sendMessage: 'repeat'.
-	[ (chat instVarNamed: #promptProcess) isTerminated ] whileFalse: [
-		(Delay forMilliseconds: 10) wait ].
+	chat waitForPromptProcessDone.
 	firstSize := mockApi history size.
-	firstAnswer := chat messages last answer.
 
 	chat sendMessage: 'repeat'.
+	chat waitForPromptProcessDone.
 
 	self assert: chat messages size equals: 2.
-	self assert: chat messages last answer equals: firstAnswer.
-	self assert: mockApi history size equals: firstSize
+	self assert: mockApi history size equals: firstSize + 1
 ]
 
 { #category : 'running' }

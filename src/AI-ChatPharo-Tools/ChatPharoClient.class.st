@@ -13,7 +13,8 @@ Class {
 		'description',
 		'parameters',
 		'block',
-		'cachedOpenAIChatTool'
+		'cachedOpenAIChatTool',
+		'mutating'
 	],
 	#category : 'AI-ChatPharo-Tools-Core',
 	#package : 'AI-ChatPharo-Tools',
@@ -183,6 +184,14 @@ ChatPharoClient >> applyTo: json [
 ]
 
 { #category : 'accessing' }
+ChatPharoClient >> beMutating [
+	"Declare that running me changes the image, opens windows or runs arbitrary code,
+	 so the user is asked before each call."
+
+	mutating := true
+]
+
+{ #category : 'accessing' }
 ChatPharoClient >> block [
 
 	^ block
@@ -224,6 +233,12 @@ ChatPharoClient >> inputSchema [
 ChatPharoClient >> inputSchema: anObject [
 
 	self parameters: anObject
+]
+
+{ #category : 'testing' }
+ChatPharoClient >> isMutating [
+
+	^ mutating ifNil: [ false ]
 ]
 
 { #category : 'accessing' }
