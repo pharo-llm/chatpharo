@@ -54,6 +54,18 @@ ChatPharoToolConsentTest >> testReadOnlyToolIsNotAsked [
 ]
 
 { #category : 'tests' }
+ChatPharoToolConsentTest >> testTheReasonOfTheUserReachesTheModel [
+
+	| payload |
+	confirmation
+		guardToolNamed: 'create_class'
+		arguments: Dictionary new
+		ifDeniedDo: [ :cancellation | payload := cancellation ].
+	self assert: ((payload at: 'reason') includesSubstring: 'use a new package instead').
+	self assert: ((payload at: 'hint') includesSubstring: 'do not retry')
+]
+
+{ #category : 'tests' }
 ChatPharoToolConsentTest >> testToolDeclaringItselfMutatingIsAsked [
 	"The list of mutating tools is no longer hard-coded: a tool says so itself."
 
@@ -65,16 +77,4 @@ ChatPharoToolConsentTest >> testToolDeclaringItselfMutatingIsAsked [
 		ifDeniedDo: [ :cancellation | payload := cancellation ].
 	self assert: asked asArray equals: #( 'click_widget' ).
 	self assert: (payload at: 'cancelled')
-]
-
-{ #category : 'tests' }
-ChatPharoToolConsentTest >> testTheReasonOfTheUserReachesTheModel [
-
-	| payload |
-	confirmation
-		guardToolNamed: 'create_class'
-		arguments: Dictionary new
-		ifDeniedDo: [ :cancellation | payload := cancellation ].
-	self assert: ((payload at: 'reason') includesSubstring: 'use a new package instead').
-	self assert: ((payload at: 'hint') includesSubstring: 'do not retry')
 ]

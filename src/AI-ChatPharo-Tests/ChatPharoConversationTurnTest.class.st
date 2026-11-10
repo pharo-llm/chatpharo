@@ -17,12 +17,6 @@ ChatPharoConversationTurnTest >> setUp [
 	history addUser: 'question'
 ]
 
-{ #category : 'private' }
-ChatPharoConversationTurnTest >> turnAnswering: replies [
-
-	^ ChatPharoConversationTurn client: (ChatPharoScriptedCompletionClient answering: replies) history: history
-]
-
 { #category : 'tests' }
 ChatPharoConversationTurnTest >> testClosingAnswerIsRequestedWhenIterationLimitIsReached [
 
@@ -82,4 +76,10 @@ ChatPharoConversationTurnTest >> testTokenUsageIsSummedOverTheWholeTurn [
 	self assert: reply inputTokens equals: 30.
 	self assert: reply outputTokens equals: 15.
 	self assert: reply totalTokens equals: 45
+]
+
+{ #category : 'private' }
+ChatPharoConversationTurnTest >> turnAnswering: replies [
+
+	^ ChatPharoConversationTurn client: (ChatPharoScriptedCompletionClient answering: replies) history: history
 ]

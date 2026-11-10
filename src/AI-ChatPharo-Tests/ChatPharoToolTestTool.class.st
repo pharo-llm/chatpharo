@@ -23,6 +23,12 @@ ChatPharoToolTestTool >> initialize [
     shouldError := false.
 ]
 
+{ #category : 'testing' }
+ChatPharoToolTestTool >> isMutating [
+
+	^ false
+]
+
 { #category : 'accessing' }
 ChatPharoToolTestTool >> name [ 
     ^ 'testTool'
@@ -33,10 +39,4 @@ ChatPharoToolTestTool >> name [
 ChatPharoToolTestTool >> shouldError: aBoolean [ 
 
     shouldError := aBoolean
-]
-
-{ #category : 'testing' }
-ChatPharoToolTestTool >> isMutating [
-
-	^ false
 ]
