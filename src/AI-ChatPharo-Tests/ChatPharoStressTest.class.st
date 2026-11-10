@@ -465,15 +465,6 @@ ChatPharoStressTest >> testLoggerHandlesMultipleRapidEntries [
         self assert: ChatPharoLogger logFile exists
 ]
 
-{ #category : 'running' }
-ChatPharoStressTest >> waitForChatProcess [ 
-        [
-                | process |
-                process := chat instVarNamed: #promptProcess.
-                process isNil or: [ process isTerminated ]
-        ] whileFalse: [ (Delay forMilliseconds: 10) wait ]
-]
-
 { #category : 'tests' }
 ChatPharoStressTest >> testRepeatedPromptAfterModelChangeIsAnsweredByNewModel [
 
@@ -502,4 +493,13 @@ ChatPharoStressTest >> testRepeatedPromptUnderLoadReachesBackendEachTime [
 		self waitForChatProcess ].
 
 	self assert: mockAgent history size equals: initialCalls + 20
+]
+
+{ #category : 'running' }
+ChatPharoStressTest >> waitForChatProcess [ 
+        [
+                | process |
+                process := chat instVarNamed: #promptProcess.
+                process isNil or: [ process isTerminated ]
+        ] whileFalse: [ (Delay forMilliseconds: 10) wait ]
 ]

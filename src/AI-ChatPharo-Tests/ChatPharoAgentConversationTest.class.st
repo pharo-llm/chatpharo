@@ -6,12 +6,6 @@ Class {
 	#tag : 'Agent'
 }
 
-{ #category : 'private' }
-ChatPharoAgentConversationTest >> usageLimit [
-
-	^ [ (ChatPharoBackendError status: 429 message: 'Rate limit exceeded.') signal ]
-]
-
 { #category : 'running' }
 ChatPharoAgentConversationTest >> tearDown [
 
@@ -83,4 +77,10 @@ ChatPharoAgentConversationTest >> testUsageLimitWithoutFallbackIsReported [
 	| agent |
 	agent := ChatPharoScriptedAgent answering: { self usageLimit }.
 	self should: [ agent getResponseForPrompt: 'hi' ] raise: ChatPharoBackendError
+]
+
+{ #category : 'private' }
+ChatPharoAgentConversationTest >> usageLimit [
+
+	^ [ (ChatPharoBackendError status: 429 message: 'Rate limit exceeded.') signal ]
 ]

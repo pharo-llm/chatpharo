@@ -81,12 +81,13 @@ ChatPharoDebuggerContext class >> fromDebugSession: aDebugSession [
 
 { #category : 'instance creation' }
 ChatPharoDebuggerContext class >> fromDebugger: aStDebugger [
-	"Build a full snapshot from a live StDebugger presenter."
+	"Build a full snapshot from a live StDebugger presenter.
+	 The session of an open debugger is reached with #session (Pharo 13+;
+	 #debugSession was the accessor of older NewTools releases, which this
+	 project does not target anymore)."
 
 	| session |
-	session := (aStDebugger respondsTo: #debugSession)
-		           ifTrue: [ aStDebugger debugSession ]
-		           ifFalse: [ nil ].
+	session := aStDebugger session.
 	session ifNil: [ ^ self new ].
 	^ self fromDebugSession: session
 ]

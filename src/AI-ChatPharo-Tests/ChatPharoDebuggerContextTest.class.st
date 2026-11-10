@@ -168,6 +168,42 @@ ChatPharoDebuggerContextTest >> testForErrorMethod [
 ]
 
 { #category : 'tests' }
+ChatPharoDebuggerContextTest >> testFromDebuggerBuildsContextFromDebuggerSession [
+	"Regression for the empty-snapshot bug: fromDebugger: asked for the
+	 old #debugSession accessor, which StDebugger does not understand in
+	 Pharo 13 (the accessor is #session), so every real debugger answered
+	 an empty context and the prompt said 'Unknown'/'No message'."
+
+	| context process session stub ctx |
+	context := [ ^ 1 + 1 ] asContext.
+	process := Process
+		           forContext: context
+		           priority: Processor userInterruptPriority.
+	session := DebugSession
+		           named: 'test fromDebugger'
+		           on: process
+		           startedAt: context.
+	session exception: (Error new messageText: 'stub failure').
+	stub := ChatPharoDebuggerStub new session: session.
+	ctx := ChatPharoDebuggerContext fromDebugger: stub.
+	self assert: ctx errorClassName equals: 'Error'.
+	self assert: ctx errorMessage equals: 'stub failure'.
+	self assert: ctx stackTrace isNotEmpty
+]
+
+{ #category : 'tests' }
+ChatPharoDebuggerContextTest >> testFromDebuggerWithoutSessionAnswersEmptyContext [
+
+	| ctx |
+	ctx := ChatPharoDebuggerContext fromDebugger:
+		       ChatPharoDebuggerStub new.
+	self assert: ctx errorClassName isNil.
+	self assert: ctx errorMessage isNil.
+	self assert: (ctx diagnosticPrompt includesSubstring: 'Unknown').
+	self assert: (ctx diagnosticPrompt includesSubstring: 'No message')
+]
+
+{ #category : 'tests' }
 ChatPharoDebuggerContextTest >> testStackFrameDetailsAccessors [
 
 	| ctx frames |
