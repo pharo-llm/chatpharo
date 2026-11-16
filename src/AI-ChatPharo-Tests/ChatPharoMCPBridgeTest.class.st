@@ -86,9 +86,27 @@ ChatPharoMCPBridgeTest >> testInitializeAnswersServerInfo [
 ]
 
 { #category : 'tests' }
+ChatPharoMCPBridgeTest >> testNotificationBatchIsAccepted [
+
+	| response serialized |
+	response := self post: '[{"jsonrpc":"2.0","method":"notifications/initialized"},{"jsonrpc":"2.0","method":"notifications/initialized"}]'.
+	self assert: response code equals: 202.
+	self deny: response hasEntity.
+	serialized := String streamContents: [ :stream | response writeOn: stream ].
+	self assert: (serialized includesSubstring: 'Content-Length: 0', String crlf).
+	self assert: (serialized endsWith: String crlf, String crlf)
+]
+
+{ #category : 'tests' }
 ChatPharoMCPBridgeTest >> testNotificationIsAccepted [
 
-	self assert: (self post: '{"jsonrpc":"2.0","method":"notifications/initialized"}') code equals: 202
+	| response serialized |
+	response := self post: '{"jsonrpc":"2.0","method":"notifications/initialized"}'.
+	self assert: response code equals: 202.
+	self deny: response hasEntity.
+	serialized := String streamContents: [ :stream | response writeOn: stream ].
+	self assert: (serialized includesSubstring: 'Content-Length: 0', String crlf).
+	self assert: (serialized endsWith: String crlf, String crlf)
 ]
 
 { #category : 'tests' }
