@@ -73,7 +73,7 @@ ChatPharoMCPBridge >> answerJsonRpc: aJsonString [
 	payload isArray ifFalse: [ ^ self httpResponseForReply: (self replyTo: payload) ].
 	replies := (payload collect: [ :each | self replyTo: each ]) reject: [ :each | each isNil ].
 	^ replies
-		  ifEmpty: [ ZnResponse accepted ]
+		  ifEmpty: [ self emptyAcceptedResponse ]
 		  ifNotEmpty: [ self jsonResponse: replies ]
 ]
 
@@ -97,6 +97,16 @@ ChatPharoMCPBridge >> connectionInstructions [
 ]
 
 { #category : 'private - http' }
+ChatPharoMCPBridge >> emptyAcceptedResponse [
+	"Delimit the empty body so HTTP/1.1 clients do not wait for connection close."
+
+	| response |
+	response := ZnResponse accepted.
+	response headers contentLength: 0.
+	^ response
+]
+
+{ #category : 'private - http' }
 ChatPharoMCPBridge >> handleRequest: aRequest [
 	"ZnServer delegate entry point."
 
@@ -111,7 +121,7 @@ ChatPharoMCPBridge >> httpResponseForReply: aReply [
 	"A notification has no reply: MCP answers it 202 Accepted."
 
 	^ aReply
-		  ifNil: [ ZnResponse accepted ]
+		  ifNil: [ self emptyAcceptedResponse ]
 		  ifNotNil: [ self jsonResponse: aReply ]
 ]
 
